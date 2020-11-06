@@ -14,6 +14,8 @@ typedef struct{
 	SDL_Rect rect;
 	SDL_Point speed;
 	SDL_Point max_speed;
+	int direction;
+	int state;
 } Entity;
 
 typedef struct
@@ -25,18 +27,32 @@ typedef struct
 }
 Data;
 
-typedef struct{
+typedef struct
+{
 	SDL_Rect position;
 	SDL_Texture* texture;
 } Sprite;
 
+
+typedef struct{
+	uint16_t n;
+	Sprite *sprites;
+} Animation;
+
+
+typedef struct
+{
+	char *texture;
+	char *data;
+} SpriteAsset;
+
 int main(int argc, char* argv[])
 {
-	
+
 	///////////////////////////////////////////////////////////////////////////////////////
 	// COLOR //////////////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////////////////////
-	
+
 	Colors colors;
 	colors.red   = (SDL_Color) {0xFF, 0x00, 0x00, 0xFF};
 	colors.green = (SDL_Color) {0x00, 0xFF, 0x00, 0xFF};
@@ -101,7 +117,7 @@ int main(int argc, char* argv[])
 		&input.down,
 		&input.left,
 		&input.right,
-		
+
 		&input.action,
 		&input.cancel,
 		&input.start
@@ -110,14 +126,14 @@ int main(int argc, char* argv[])
 	///////////////////////////////////////////////////////////////////////////////////////
 	// TTF INIT ///////////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////////////////////
-	
+
 	int font_size = 30;
 
 	const int letters_size = 128;
 	Letter letters_white[letters_size];
 	Letter letters_green[letters_size];
 	Letter letters_red[letters_size];
-	
+
 	if (TTF_Init() < 0) return 1;
 
 	TTF_Font* font = TTF_OpenFont("assets/fonts/RobotoMono-Regular.ttf", font_size);
@@ -137,153 +153,86 @@ int main(int argc, char* argv[])
 	int img_flags = IMG_INIT_PNG;
     if((IMG_Init(img_flags) & img_flags) != img_flags) return 1;
 
+	enum ANIMATION_STATES{
+		PLAYER_STATE_FRONT_IDLE,
+		PLAYER_STATE_SIDE_IDLE,
+		PLAYER_STATE_BACK_IDLE,
+		PLAYER_STATE_FRONT_WALK,
+		PLAYER_STATE_SIDE_WALK,
+		PLAYER_STATE_BACK_WALK,
+		PLAYER_STATE_TOTAL
+	};
 
+	SpriteAsset assets[PLAYER_STATE_TOTAL];
+	
+	assets[PLAYER_STATE_FRONT_IDLE].texture = "assets/textures/idle_front.png";
+	assets[PLAYER_STATE_FRONT_IDLE].data    = "assets/textures/idle_front.data";
+	assets[PLAYER_STATE_SIDE_IDLE].texture  = "assets/textures/idle_side.png";
+	assets[PLAYER_STATE_SIDE_IDLE].data     = "assets/textures/idle_side.data";
+	assets[PLAYER_STATE_BACK_IDLE].texture  = "assets/textures/idle_back.png";
+	assets[PLAYER_STATE_BACK_IDLE].data     = "assets/textures/idle_back.data";
 
-	SDL_Surface* surface = NULL;
-	FILE *file = NULL;
-	uint16_t n = 0;
-	int upscale = 4;
+	assets[PLAYER_STATE_FRONT_WALK].texture = "assets/textures/walk_front.png";
+	assets[PLAYER_STATE_FRONT_WALK].data    = "assets/textures/walk_front.data";
+	assets[PLAYER_STATE_SIDE_WALK].texture  = "assets/textures/walk_side.png";
+	assets[PLAYER_STATE_SIDE_WALK].data     = "assets/textures/walk_side.data";
+	assets[PLAYER_STATE_BACK_WALK].texture  = "assets/textures/walk_back.png";
+	assets[PLAYER_STATE_BACK_WALK].data     = "assets/textures/walk_back.data";
 
-	// Player idle
-	SDL_Texture* texture = NULL;
+	SDL_Texture *textures[PLAYER_STATE_TOTAL];
+	Animation animations[PLAYER_STATE_TOTAL];
 
-
-	surface = IMG_Load("assets/textures/idle.png");
-	if (surface == NULL) return 1;
-
-	texture = SDL_CreateTextureFromSurface(screen.renderer, surface);
-	SDL_FreeSurface(surface);
-
-
-	int sprite_index = 0;
-
-
-	SDL_RendererFlip flipType = SDL_FLIP_NONE;
-
-	file = fopen("assets/textures/idle.data", "rb");
-	if (file == NULL) return 1;
-
-	fread(&n, sizeof(uint16_t), 1, file);
-
-	Sprite *sprite_sheet_1 = malloc(sizeof(Sprite)*n);
-
-	for (uint16_t i = 0; i < n; i++)
+	for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
 	{
-		Data data;
-		fread(&data, sizeof(data), 1, file);
-		sprite_sheet_1[i].position.x = data.x;
-		sprite_sheet_1[i].position.y = data.y;
-		sprite_sheet_1[i].position.h = data.h;
-		sprite_sheet_1[i].position.w = data.w;
-		sprite_sheet_1[i].texture = texture;
+		// Load Sprite Sheet
+		SDL_Surface *surface = NULL;
+		surface = IMG_Load(assets[i].texture);
+		if (surface == NULL) return 1;
+
+		textures[i] = SDL_CreateTextureFromSurface(screen.renderer, surface);
+		SDL_FreeSurface(surface);
+
+		// Load Sprite Positions
+		FILE *file = fopen(assets[i].data, "rb");
+		if (file == NULL) return 1;
+
+		fread(&animations[i].n, sizeof(uint16_t), 1, file);
+
+		animations[i].sprites = malloc(sizeof(Sprite)*animations[i].n);
+
+		for (uint16_t j = 0; j < animations[i].n; j++)
+		{
+			Data data;
+			fread(&data, sizeof(Data), 1, file);
+			animations[i].sprites[j].position.x = data.x;
+			animations[i].sprites[j].position.y = data.y;
+			animations[i].sprites[j].position.h = data.h;
+			animations[i].sprites[j].position.w = data.w;
+			animations[i].sprites[j].texture = textures[i];
+		}
+
+		fclose(file);
 	}
-	fclose(file);
-
-
-	// Player movement
-
-	// front
-	uint16_t n2 = 0;
-	int sprite_index_2 = 0;
-
-	SDL_Texture* texture2 = NULL;
-
-	surface = IMG_Load("assets/textures/walk_front.png");
-	if (surface == NULL) return 1;
-
-	texture2 = SDL_CreateTextureFromSurface(screen.renderer, surface);
-	SDL_FreeSurface(surface);
-
-
-	file = fopen("assets/textures/walk_front.data", "rb");
-	if (file == NULL) return 1;
-
-	fread(&n2, sizeof(uint16_t), 1, file);
-
-	Sprite *sprite_sheet_2 = malloc(sizeof(Sprite)*n2);
-
-	for (uint16_t i=0; i < n2; i++)
-	{
-		Data data;
-		fread(&data, sizeof(Data), 1, file);
-		sprite_sheet_2[i].position.x = data.x;
-		sprite_sheet_2[i].position.y = data.y;
-		sprite_sheet_2[i].position.h = data.h;
-		sprite_sheet_2[i].position.w = data.w;
-		sprite_sheet_2[i].texture = texture2;
-	}
-	fclose(file);
-
-
-	// side
-	uint16_t n3 = 0;
-	int sprite_index_3 = 0;
-
-	SDL_Texture* texture3 = NULL;
-
-	surface = IMG_Load("assets/textures/walk_side.png");
-	if (surface == NULL) return 1;
-
-	texture3 = SDL_CreateTextureFromSurface(screen.renderer, surface);
-	SDL_FreeSurface(surface);
-
-	file = fopen("assets/textures/walk_side.data", "rb");
-
-	fread(&n3, sizeof(uint16_t), 1, file);
-
-	Sprite *sprite_sheet_3 = malloc(sizeof(Sprite)*n3);
-
-	for (uint16_t i = 0; i < n3; i++)
-	{
-		Data data;
-		fread(&data, sizeof(data), 1, file);
-		sprite_sheet_3[i].position.x = data.x;
-		sprite_sheet_3[i].position.y = data.y;
-		sprite_sheet_3[i].position.h = data.h;
-		sprite_sheet_3[i].position.w = data.w;
-		sprite_sheet_3[i].texture = texture3;
-	}
-	fclose(file);
-
-
-	// back
-	uint16_t n4 = 0;
-	int sprite_index_4 = 0;
-
-	SDL_Texture* texture4 = NULL;
-
-	surface = IMG_Load("assets/textures/walk_back.png");
-	if (surface == NULL) return 1;
-
-	texture4 = SDL_CreateTextureFromSurface(screen.renderer, surface);
-	SDL_FreeSurface(surface);
-
-	file = fopen("assets/textures/walk_back.data", "rb");
-
-	fread(&n4, sizeof(uint16_t), 1, file);
-
-	Sprite *sprite_sheet_4 = malloc(sizeof(Sprite)*n4);
-
-	for (uint16_t i = 0; i < n4; i++)
-	{
-		Data data;
-		fread(&data, sizeof(data), 1, file);
-		sprite_sheet_4[i].position.x = data.x;
-		sprite_sheet_4[i].position.y = data.y;
-		sprite_sheet_4[i].position.h = data.h;
-		sprite_sheet_4[i].position.w = data.w;
-		sprite_sheet_4[i].texture = texture4;
-	}
-	fclose(file);
-
-
-
+	
 	IMG_Quit();
 
-	int player_state = 0;
 	///////////////////////////////////////////////////////////////////////////////////////
 	// GAME INIT //////////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////////////////////
+
+	enum PLAYER_DIRECTIONS
+	{
+		PLAYER_DIRECTION_FRONT,
+		PLAYER_DIRECTION_LEFT,
+		PLAYER_DIRECTION_RIGHT,
+		PLAYER_DIRECTION_BACK
+	};
+
+	enum PLAYER_STATES
+	{
+		PLAYER_IDLE,
+		PLAYER_WALK
+	};
 
 	Entity player;
 	player.rect.x = 100;
@@ -295,12 +244,19 @@ int main(int argc, char* argv[])
 	player.speed.y = 0;
 	player.max_speed.x = 6;
 	player.max_speed.y = 6;
+	player.state = PLAYER_IDLE;
+	player.direction = PLAYER_DIRECTION_FRONT;
 
-	int acc = 0;
+
+	int upscale = 4;
+	int animation_state = PLAYER_STATE_FRONT_IDLE;
+	int animation_acc = 0;
+	int animation_index = 0;
+
+	SDL_RendererFlip flipType = SDL_FLIP_NONE;
 
 	while(screen.exit == SDL_GAME_RUN)
 	{
-
 		///////////////////////////////////////////////////////////////////////////////////
 		// Events /////////////////////////////////////////////////////////////////////////
 		///////////////////////////////////////////////////////////////////////////////////
@@ -320,45 +276,41 @@ int main(int argc, char* argv[])
 		///////////////////////////////////////////////////////////////////////////
 		// Action Logic ///////////////////////////////////////////////////////////
 		///////////////////////////////////////////////////////////////////////////
-		
+
 		if (input.up.state)
 		{
 			player.speed.y = -player.max_speed.y;
 			player.speed.x = 0;
-			sprite_index = 2;
-			flipType = SDL_FLIP_NONE;
-			player_state = 3;
+			player.state = PLAYER_WALK;
+			player.direction = PLAYER_DIRECTION_BACK;
+			
 		}
 		else if (input.down.state)
 		{
 			player.speed.y = player.max_speed.y;
 			player.speed.x = 0;
-			sprite_index = 0;
-			flipType = SDL_FLIP_NONE;
-			player_state = 1;
+			player.state = PLAYER_WALK;
+			player.direction = PLAYER_DIRECTION_FRONT;
 		}
 		else if (input.left.state)
 		{
 			player.speed.x = -player.max_speed.x;
 			player.speed.y = 0;
-			sprite_index = 1;
-			flipType = SDL_FLIP_NONE;
-			player_state = 2;
+			player.state = PLAYER_WALK;
+			player.direction = PLAYER_DIRECTION_LEFT;
 		}
 		else if (input.right.state)
 		{
 			player.speed.x = player.max_speed.x;
 			player.speed.y = 0;
-			sprite_index = 1;
-			flipType = SDL_FLIP_HORIZONTAL;
-			player_state = 2;
+			player.state = PLAYER_WALK;
+			player.direction = PLAYER_DIRECTION_RIGHT;
 		}
 		else
 		{
 			player.speed.y = 0;
 			player.speed.x = 0;
-			player_state = 0;
-			sprite_index_2 = 0;
+			player.state = PLAYER_IDLE;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -372,12 +324,72 @@ int main(int argc, char* argv[])
 		player.rect.x += player.speed.x;
 		player.rect.y += player.speed.y;
 
-		acc += 1;
-
-		if (acc > 2)
+		// Animation update
+		if (player.state == PLAYER_IDLE)
 		{
-			acc = 0;
-			sprite_index_2 = (sprite_index_2 + 1) % n2;
+			switch (player.direction)
+			{
+				case PLAYER_DIRECTION_FRONT:{
+					animation_state = PLAYER_STATE_FRONT_IDLE;
+					flipType = SDL_FLIP_NONE;
+					break;
+				}
+				case PLAYER_DIRECTION_BACK:{
+					animation_state = PLAYER_STATE_BACK_IDLE;
+					flipType = SDL_FLIP_NONE;
+					break;
+				}
+				case PLAYER_DIRECTION_LEFT:{
+					animation_state = PLAYER_STATE_SIDE_IDLE;
+					flipType = SDL_FLIP_NONE;
+					break;
+				}
+				case PLAYER_DIRECTION_RIGHT:{
+					animation_state = PLAYER_STATE_SIDE_IDLE;
+					flipType = SDL_FLIP_HORIZONTAL;
+					break;
+				}
+			}
+		}
+		else if (player.state == PLAYER_WALK)
+		{
+			switch (player.direction)
+			{
+				case PLAYER_DIRECTION_FRONT:{
+					animation_state = PLAYER_STATE_FRONT_WALK;
+					flipType = SDL_FLIP_NONE;
+					break;
+				}
+				case PLAYER_DIRECTION_BACK:{
+					animation_state = PLAYER_STATE_BACK_WALK;
+					flipType = SDL_FLIP_NONE;
+					break;
+				}
+				case PLAYER_DIRECTION_LEFT:{
+					animation_state = PLAYER_STATE_SIDE_WALK;
+					flipType = SDL_FLIP_NONE;
+					break;
+				}
+				case PLAYER_DIRECTION_RIGHT:{
+					animation_state = PLAYER_STATE_SIDE_WALK;
+					flipType = SDL_FLIP_HORIZONTAL;
+					break;
+				}
+			}
+		}
+
+		animation_acc += 1;
+
+		if (animation_acc > 2)
+		{
+			animation_acc = 0;
+			animation_index = (animation_index + 1) % animations[animation_state].n;
+		}
+
+		// To prevent overflows
+		if (animation_index >= animations[animation_state].n)
+		{
+			animation_index = 0;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -387,74 +399,40 @@ int main(int argc, char* argv[])
 		set_render_draw_color(screen.renderer, &screen.clear_color);
 		SDL_RenderClear(screen.renderer);
 
-		//set_render_draw_color(screen.renderer, &colors.red);
-		//SDL_RenderFillRect(screen.renderer, &player.rect);
+		SDL_Rect sprite_position;
+		sprite_position.x = player.rect.x;
+		sprite_position.y = player.rect.y;
+		sprite_position.h = animations[animation_state].sprites[animation_index].position.h * upscale;
+		sprite_position.w = animations[animation_state].sprites[animation_index].position.w * upscale;
 
-
-		if (player_state == 0)
-		{
-			SDL_Rect sprite_position;
-			sprite_position.x = player.rect.x;
-			sprite_position.y = player.rect.y;
-			sprite_position.h = sprite_sheet_1[sprite_index].position.h * upscale;
-			sprite_position.w = sprite_sheet_1[sprite_index].position.w * upscale;
-			SDL_RenderCopyEx(screen.renderer, sprite_sheet_1[sprite_index].texture, &(sprite_sheet_1[sprite_index].position), &sprite_position, 0, NULL, flipType);
-		}
-		else if (player_state == 1)
-		{
-			SDL_Rect sprite_position;
-			sprite_position.x = player.rect.x;
-			sprite_position.y = player.rect.y;
-			sprite_position.h = sprite_sheet_2[sprite_index].position.h * upscale;
-			sprite_position.w = sprite_sheet_2[sprite_index].position.w * upscale;
-			SDL_RenderCopyEx(screen.renderer, sprite_sheet_2[sprite_index_2].texture, &(sprite_sheet_2[sprite_index_2].position), &sprite_position, 0, NULL, flipType);
-
-		}
-		else if (player_state == 2)
-		{
-			SDL_Rect sprite_position;
-			sprite_position.x = player.rect.x;
-			sprite_position.y = player.rect.y;
-			sprite_position.h = sprite_sheet_3[sprite_index].position.h * upscale;
-			sprite_position.w = sprite_sheet_3[sprite_index].position.w * upscale;
-			SDL_RenderCopyEx(screen.renderer, sprite_sheet_3[sprite_index_2].texture, &(sprite_sheet_3[sprite_index_2].position), &sprite_position, 0, NULL, flipType);
-		}
-		else if (player_state == 3)
-		{
-			SDL_Rect sprite_position;
-			sprite_position.x = player.rect.x;
-			sprite_position.y = player.rect.y;
-			sprite_position.h = sprite_sheet_4[sprite_index].position.h * upscale;
-			sprite_position.w = sprite_sheet_4[sprite_index].position.w * upscale;
-			SDL_RenderCopyEx(screen.renderer, sprite_sheet_4[sprite_index_2].texture, &(sprite_sheet_4[sprite_index_2].position), &sprite_position, 0, NULL, flipType);
-		}
-
-
-
-		//render_string(screen.renderer, 0, 0, letters_white, "This is a test!");
-
+		SDL_RenderCopyEx(
+			screen.renderer,
+			animations[animation_state].sprites[animation_index].texture,
+			&(animations[animation_state].sprites[animation_index].position),
+			&sprite_position,
+			0,
+			NULL,
+			flipType
+		);
 		SDL_RenderPresent(screen.renderer);
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////
 	// Cleanup ////////////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////////////////////
-	free(sprite_sheet_3);
-	free(sprite_sheet_2);
-	free(sprite_sheet_1);
-
 	destroy_charset(letters_white, letters_size);
 	destroy_charset(letters_green, letters_size);
 	destroy_charset(letters_red,   letters_size);
-
-	SDL_DestroyTexture(texture4);
-	SDL_DestroyTexture(texture3);
-	SDL_DestroyTexture(texture2);
-	SDL_DestroyTexture(texture);
+	
+	for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
+	{
+		SDL_DestroyTexture(textures[i]);
+		free(animations[i].sprites);
+	}
 
 	SDL_DestroyRenderer(screen.renderer);
 	SDL_DestroyWindow(screen.window);
-	
+
 	TTF_Quit();
 	SDL_Quit();
 
