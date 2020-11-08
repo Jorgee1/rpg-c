@@ -10,13 +10,6 @@
 #include "input/input.h"
 #include "charset/charset.h"
 
-typedef struct{
-	SDL_Rect rect;
-	SDL_Point speed;
-	SDL_Point max_speed;
-	int direction;
-	int state;
-} Entity;
 
 typedef struct
 {
@@ -36,6 +29,7 @@ typedef struct
 
 typedef struct{
 	uint16_t n;
+	int speed;
 	Sprite *sprites;
 } Animation;
 
@@ -45,6 +39,22 @@ typedef struct
 	char *texture;
 	char *data;
 } SpriteAsset;
+
+typedef struct{
+	SDL_Rect rect;
+	SDL_Point speed;
+	SDL_Point max_speed;
+	int direction;
+	int state;
+
+	int animation_index;
+	int animation_state;
+	int animation_acc;
+
+	Sprite *sprite;
+	SDL_RendererFlip flip;
+} Entity;
+
 
 int main(int argc, char* argv[])
 {
@@ -96,7 +106,6 @@ int main(int argc, char* argv[])
 	if (screen.renderer == NULL) return 1;
 
 	SDL_ShowWindow(screen.window);
-
 	///////////////////////////////////////////////////////////////////////////////////////
 	// BUTTONS ////////////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////////////////////
@@ -153,7 +162,8 @@ int main(int argc, char* argv[])
 	int img_flags = IMG_INIT_PNG;
     if((IMG_Init(img_flags) & img_flags) != img_flags) return 1;
 
-	enum ANIMATION_STATES{
+	enum ANIMATION_STATES
+	{
 		PLAYER_STATE_FRONT_IDLE,
 		PLAYER_STATE_SIDE_IDLE,
 		PLAYER_STATE_BACK_IDLE,
@@ -199,7 +209,7 @@ int main(int argc, char* argv[])
 		fread(&animations[i].n, sizeof(uint16_t), 1, file);
 
 		animations[i].sprites = malloc(sizeof(Sprite)*animations[i].n);
-
+		animations[i].speed = 2;
 		for (uint16_t j = 0; j < animations[i].n; j++)
 		{
 			Data data;
@@ -215,6 +225,8 @@ int main(int argc, char* argv[])
 	}
 	
 	IMG_Quit();
+
+
 
 	///////////////////////////////////////////////////////////////////////////////////////
 	// GAME INIT //////////////////////////////////////////////////////////////////////////
@@ -234,26 +246,35 @@ int main(int argc, char* argv[])
 		PLAYER_WALK
 	};
 
-	Entity player;
-	player.rect.x = 100;
-	player.rect.y = 100;
-	player.rect.h = 100;
-	player.rect.w = 100;
+	const int entity_size = 400;
+	Entity entity[entity_size];
 
-	player.speed.x = 0;
-	player.speed.y = 0;
-	player.max_speed.x = 6;
-	player.max_speed.y = 6;
-	player.state = PLAYER_IDLE;
-	player.direction = PLAYER_DIRECTION_FRONT;
+	for (int i = 0; i < entity_size; i++)
+	{
+		entity[i].rect.x = 100+i;
+		entity[i].rect.y = 100;
+		entity[i].rect.h = 100;
+		entity[i].rect.w = 100;
 
+		entity[i].speed.x = 0;
+		entity[i].speed.y = 0;
+		entity[i].max_speed.x = 6;
+		entity[i].max_speed.y = 6;
+		entity[i].state = PLAYER_WALK;
+		entity[i].direction = PLAYER_DIRECTION_FRONT;
+		
+		entity[i].sprite = &(animations[entity[i].state].sprites[entity[i].direction]);
+		entity[i].animation_index = 0;
+		entity[i].animation_state = PLAYER_STATE_FRONT_IDLE;
+		entity[i].animation_acc = 0;		
+		
+		entity[i].flip = SDL_FLIP_NONE;
+	}
+
+	Entity *player = &(entity[0]);
 
 	int upscale = 4;
-	int animation_state = PLAYER_STATE_FRONT_IDLE;
 	int animation_acc = 0;
-	int animation_index = 0;
-
-	SDL_RendererFlip flipType = SDL_FLIP_NONE;
 
 	while(screen.exit == SDL_GAME_RUN)
 	{
@@ -279,38 +300,38 @@ int main(int argc, char* argv[])
 
 		if (input.up.state)
 		{
-			player.speed.y = -player.max_speed.y;
-			player.speed.x = 0;
-			player.state = PLAYER_WALK;
-			player.direction = PLAYER_DIRECTION_BACK;
+			player->speed.y = -player->max_speed.y;
+			player->speed.x = 0;
+			player->state = PLAYER_WALK;
+			player->direction = PLAYER_DIRECTION_BACK;
 			
 		}
 		else if (input.down.state)
 		{
-			player.speed.y = player.max_speed.y;
-			player.speed.x = 0;
-			player.state = PLAYER_WALK;
-			player.direction = PLAYER_DIRECTION_FRONT;
+			player->speed.y = player->max_speed.y;
+			player->speed.x = 0;
+			player->state = PLAYER_WALK;
+			player->direction = PLAYER_DIRECTION_FRONT;
 		}
 		else if (input.left.state)
 		{
-			player.speed.x = -player.max_speed.x;
-			player.speed.y = 0;
-			player.state = PLAYER_WALK;
-			player.direction = PLAYER_DIRECTION_LEFT;
+			player->speed.x = -player->max_speed.x;
+			player->speed.y = 0;
+			player->state = PLAYER_WALK;
+			player->direction = PLAYER_DIRECTION_LEFT;
 		}
 		else if (input.right.state)
 		{
-			player.speed.x = player.max_speed.x;
-			player.speed.y = 0;
-			player.state = PLAYER_WALK;
-			player.direction = PLAYER_DIRECTION_RIGHT;
+			player->speed.x = player->max_speed.x;
+			player->speed.y = 0;
+			player->state = PLAYER_WALK;
+			player->direction = PLAYER_DIRECTION_RIGHT;
 		}
 		else
 		{
-			player.speed.y = 0;
-			player.speed.x = 0;
-			player.state = PLAYER_IDLE;
+			player->speed.y = 0;
+			player->speed.x = 0;
+			player->state = PLAYER_IDLE;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -321,76 +342,85 @@ int main(int argc, char* argv[])
 		// Update World ///////////////////////////////////////////////////////////
 		///////////////////////////////////////////////////////////////////////////
 
-		player.rect.x += player.speed.x;
-		player.rect.y += player.speed.y;
-
-		// Animation update
-		if (player.state == PLAYER_IDLE)
+		for (int i = 0; i < entity_size; i++)
 		{
-			switch (player.direction)
+			// Space update
+			entity[i].rect.x += entity[i].speed.x;
+			entity[i].rect.y += entity[i].speed.y;
+
+			// Animation update
+			if (entity[i].state == PLAYER_IDLE)
 			{
-				case PLAYER_DIRECTION_FRONT:{
-					animation_state = PLAYER_STATE_FRONT_IDLE;
-					flipType = SDL_FLIP_NONE;
-					break;
-				}
-				case PLAYER_DIRECTION_BACK:{
-					animation_state = PLAYER_STATE_BACK_IDLE;
-					flipType = SDL_FLIP_NONE;
-					break;
-				}
-				case PLAYER_DIRECTION_LEFT:{
-					animation_state = PLAYER_STATE_SIDE_IDLE;
-					flipType = SDL_FLIP_NONE;
-					break;
-				}
-				case PLAYER_DIRECTION_RIGHT:{
-					animation_state = PLAYER_STATE_SIDE_IDLE;
-					flipType = SDL_FLIP_HORIZONTAL;
-					break;
+				switch (entity[i].direction)
+				{
+					case PLAYER_DIRECTION_FRONT:{
+						entity[i].animation_state = PLAYER_STATE_FRONT_IDLE;
+						entity[i].flip = SDL_FLIP_NONE;
+						break;
+					}
+					case PLAYER_DIRECTION_BACK:{
+						entity[i].animation_state = PLAYER_STATE_BACK_IDLE;
+						entity[i].flip = SDL_FLIP_NONE;
+						break;
+					}
+					case PLAYER_DIRECTION_LEFT:{
+						entity[i].animation_state = PLAYER_STATE_SIDE_IDLE;
+						entity[i].flip = SDL_FLIP_NONE;
+						break;
+					}
+					case PLAYER_DIRECTION_RIGHT:{
+						entity[i].animation_state = PLAYER_STATE_SIDE_IDLE;
+						entity[i].flip = SDL_FLIP_HORIZONTAL;
+						break;
+					}
 				}
 			}
-		}
-		else if (player.state == PLAYER_WALK)
-		{
-			switch (player.direction)
+			else if (entity[i].state == PLAYER_WALK)
 			{
-				case PLAYER_DIRECTION_FRONT:{
-					animation_state = PLAYER_STATE_FRONT_WALK;
-					flipType = SDL_FLIP_NONE;
-					break;
-				}
-				case PLAYER_DIRECTION_BACK:{
-					animation_state = PLAYER_STATE_BACK_WALK;
-					flipType = SDL_FLIP_NONE;
-					break;
-				}
-				case PLAYER_DIRECTION_LEFT:{
-					animation_state = PLAYER_STATE_SIDE_WALK;
-					flipType = SDL_FLIP_NONE;
-					break;
-				}
-				case PLAYER_DIRECTION_RIGHT:{
-					animation_state = PLAYER_STATE_SIDE_WALK;
-					flipType = SDL_FLIP_HORIZONTAL;
-					break;
+				switch (entity[i].direction)
+				{
+					case PLAYER_DIRECTION_FRONT:{
+						entity[i].animation_state = PLAYER_STATE_FRONT_WALK;
+						entity[i].flip = SDL_FLIP_NONE;
+						break;
+					}
+					case PLAYER_DIRECTION_BACK:{
+						entity[i].animation_state = PLAYER_STATE_BACK_WALK;
+						entity[i].flip = SDL_FLIP_NONE;
+						break;
+					}
+					case PLAYER_DIRECTION_LEFT:{
+						entity[i].animation_state = PLAYER_STATE_SIDE_WALK;
+						entity[i].flip = SDL_FLIP_NONE;
+						break;
+					}
+					case PLAYER_DIRECTION_RIGHT:{
+						entity[i].animation_state = PLAYER_STATE_SIDE_WALK;
+						entity[i].flip = SDL_FLIP_HORIZONTAL;
+						break;
+					}
 				}
 			}
+			
+			entity[i].animation_acc += 1;
+			// animation frame update
+			if (entity[i].animation_acc > animations[entity[i].animation_state].speed)
+			{
+				entity[i].animation_acc = 0;
+				entity[i].animation_index = (entity[i].animation_index + 1) % animations[entity[i].animation_state].n;
+			}
+
+			// To prevent overflows
+			if (entity[i].animation_index >= animations[entity[i].animation_state].n)
+			{
+				entity[i].animation_index = 0;
+				entity[i].animation_acc = 0;
+			}
+
+			// Current sprite pointer update
+			entity[i].sprite = &(animations[entity[i].animation_state].sprites[entity[i].animation_index]);
 		}
 
-		animation_acc += 1;
-
-		if (animation_acc > 2)
-		{
-			animation_acc = 0;
-			animation_index = (animation_index + 1) % animations[animation_state].n;
-		}
-
-		// To prevent overflows
-		if (animation_index >= animations[animation_state].n)
-		{
-			animation_index = 0;
-		}
 
 		///////////////////////////////////////////////////////////////////////////
 		// Render /////////////////////////////////////////////////////////////////
@@ -399,21 +429,25 @@ int main(int argc, char* argv[])
 		set_render_draw_color(screen.renderer, &screen.clear_color);
 		SDL_RenderClear(screen.renderer);
 
-		SDL_Rect sprite_position;
-		sprite_position.x = player.rect.x;
-		sprite_position.y = player.rect.y;
-		sprite_position.h = animations[animation_state].sprites[animation_index].position.h * upscale;
-		sprite_position.w = animations[animation_state].sprites[animation_index].position.w * upscale;
+		for (int i = 0; i < entity_size; i++)
+		{
+			SDL_Rect sprite_position;
+			sprite_position.x = entity[i].rect.x;
+			sprite_position.y = entity[i].rect.y;
+			sprite_position.h = entity[i].sprite->position.h * upscale;
+			sprite_position.w = entity[i].sprite->position.w * upscale;
 
-		SDL_RenderCopyEx(
-			screen.renderer,
-			animations[animation_state].sprites[animation_index].texture,
-			&(animations[animation_state].sprites[animation_index].position),
-			&sprite_position,
-			0,
-			NULL,
-			flipType
-		);
+			SDL_RenderCopyEx(
+				screen.renderer,
+				entity[i].sprite->texture,
+				&(entity[i].sprite->position),
+				&sprite_position,
+				0,
+				NULL,
+				entity[i].flip
+			);
+
+		}
 		SDL_RenderPresent(screen.renderer);
 	}
 
