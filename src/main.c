@@ -22,6 +22,14 @@ Data;
 
 typedef struct
 {
+	char *texture;
+	char *data;
+} SpriteAsset;
+
+
+
+typedef struct
+{
 	SDL_Rect position;
 	SDL_Texture* texture;
 } Sprite;
@@ -33,13 +41,6 @@ typedef struct{
 	Sprite *sprites;
 } Animation;
 
-
-typedef struct
-{
-	char *texture;
-	char *data;
-} SpriteAsset;
-
 typedef struct{
 	SDL_Rect rect;
 	SDL_Point speed;
@@ -48,7 +49,6 @@ typedef struct{
 	int state;
 
 	int animation_index;
-	int animation_state;
 	int animation_acc;
 
 	Sprite *sprite;
@@ -261,7 +261,7 @@ int main(int argc, char* argv[])
 		entity[i].max_speed.x = 6;
 		entity[i].max_speed.y = 6;
 		entity[i].state = PLAYER_WALK;
-		entity[i].direction = PLAYER_DIRECTION_FRONT;
+		entity[i].direction = PLAYER_DIRECTION_LEFT;
 		
 		entity[i].sprite = &(animations[entity[i].state].sprites[entity[i].direction]);
 		entity[i].animation_index = 0;
@@ -344,6 +344,7 @@ int main(int argc, char* argv[])
 
 		for (int i = 0; i < entity_size; i++)
 		{
+			int animation_state;
 			// Space update
 			entity[i].rect.x += entity[i].speed.x;
 			entity[i].rect.y += entity[i].speed.y;
@@ -354,22 +355,22 @@ int main(int argc, char* argv[])
 				switch (entity[i].direction)
 				{
 					case PLAYER_DIRECTION_FRONT:{
-						entity[i].animation_state = PLAYER_STATE_FRONT_IDLE;
+						animation_state = PLAYER_STATE_FRONT_IDLE;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_BACK:{
-						entity[i].animation_state = PLAYER_STATE_BACK_IDLE;
+						animation_state = PLAYER_STATE_BACK_IDLE;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_LEFT:{
-						entity[i].animation_state = PLAYER_STATE_SIDE_IDLE;
+						animation_state = PLAYER_STATE_SIDE_IDLE;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_RIGHT:{
-						entity[i].animation_state = PLAYER_STATE_SIDE_IDLE;
+						animation_state = PLAYER_STATE_SIDE_IDLE;
 						entity[i].flip = SDL_FLIP_HORIZONTAL;
 						break;
 					}
@@ -380,22 +381,22 @@ int main(int argc, char* argv[])
 				switch (entity[i].direction)
 				{
 					case PLAYER_DIRECTION_FRONT:{
-						entity[i].animation_state = PLAYER_STATE_FRONT_WALK;
+						animation_state = PLAYER_STATE_FRONT_WALK;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_BACK:{
-						entity[i].animation_state = PLAYER_STATE_BACK_WALK;
+						animation_state= PLAYER_STATE_BACK_WALK;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_LEFT:{
-						entity[i].animation_state = PLAYER_STATE_SIDE_WALK;
+						animation_state = PLAYER_STATE_SIDE_WALK;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_RIGHT:{
-						entity[i].animation_state = PLAYER_STATE_SIDE_WALK;
+						animation_state = PLAYER_STATE_SIDE_WALK;
 						entity[i].flip = SDL_FLIP_HORIZONTAL;
 						break;
 					}
@@ -404,21 +405,21 @@ int main(int argc, char* argv[])
 			
 			entity[i].animation_acc += 1;
 			// animation frame update
-			if (entity[i].animation_acc > animations[entity[i].animation_state].speed)
+			if (entity[i].animation_acc > animations[animation_state].speed)
 			{
 				entity[i].animation_acc = 0;
-				entity[i].animation_index = (entity[i].animation_index + 1) % animations[entity[i].animation_state].n;
+				entity[i].animation_index = (entity[i].animation_index + 1) % animations[animation_state].n;
 			}
 
 			// To prevent overflows
-			if (entity[i].animation_index >= animations[entity[i].animation_state].n)
+			if (entity[i].animation_index >= animations[animation_state].n)
 			{
 				entity[i].animation_index = 0;
 				entity[i].animation_acc = 0;
 			}
 
 			// Current sprite pointer update
-			entity[i].sprite = &(animations[entity[i].animation_state].sprites[entity[i].animation_index]);
+			entity[i].sprite = &(animations[animation_state].sprites[entity[i].animation_index]);
 		}
 
 
