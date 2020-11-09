@@ -13,20 +13,9 @@
 
 typedef struct
 {
-	uint16_t x;
-	uint16_t y;
-	uint16_t w;
-	uint16_t h;
-}
-Data;
-
-typedef struct
-{
 	char *texture;
 	char *data;
-} SpriteAsset;
-
-
+} SpriteSheetAsset;
 
 typedef struct
 {
@@ -34,14 +23,15 @@ typedef struct
 	SDL_Texture* texture;
 } Sprite;
 
-
-typedef struct{
-	uint16_t n;
+typedef struct
+{
+	int n;
 	int speed;
 	Sprite *sprites;
 } Animation;
 
-typedef struct{
+typedef struct
+{
 	SDL_Rect rect;
 	SDL_Point speed;
 	SDL_Point max_speed;
@@ -162,38 +152,42 @@ int main(int argc, char* argv[])
 	int img_flags = IMG_INIT_PNG;
     if((IMG_Init(img_flags) & img_flags) != img_flags) return 1;
 
-	enum ANIMATION_STATES
+	enum PLAYER_STATES
 	{
-		PLAYER_STATE_FRONT_IDLE,
-		PLAYER_STATE_SIDE_IDLE,
-		PLAYER_STATE_BACK_IDLE,
-		PLAYER_STATE_FRONT_WALK,
-		PLAYER_STATE_SIDE_WALK,
-		PLAYER_STATE_BACK_WALK,
+		PLAYER_IDLE,
+		PLAYER_WALK,
 		PLAYER_STATE_TOTAL
 	};
 
-	SpriteAsset assets[PLAYER_STATE_TOTAL];
+
+	enum ANIMATION_STATES_VARIATION
+	{
+		ANIMATION_FRONT,
+		ANIMATION_SIDE,
+		ANIMATION_BACK,
+		ANIMATION_STATE_TOTAL
+	};
+
+	SpriteSheetAsset assets[PLAYER_STATE_TOTAL];
 	
-	assets[PLAYER_STATE_FRONT_IDLE].texture = "assets/textures/idle_front.png";
-	assets[PLAYER_STATE_FRONT_IDLE].data    = "assets/textures/idle_front.data";
-	assets[PLAYER_STATE_SIDE_IDLE].texture  = "assets/textures/idle_side.png";
-	assets[PLAYER_STATE_SIDE_IDLE].data     = "assets/textures/idle_side.data";
-	assets[PLAYER_STATE_BACK_IDLE].texture  = "assets/textures/idle_back.png";
-	assets[PLAYER_STATE_BACK_IDLE].data     = "assets/textures/idle_back.data";
+	assets[PLAYER_IDLE].texture = "assets/textures/idle.png";
+	assets[PLAYER_IDLE].data    = "assets/textures/idle.data";
 
-	assets[PLAYER_STATE_FRONT_WALK].texture = "assets/textures/walk_front.png";
-	assets[PLAYER_STATE_FRONT_WALK].data    = "assets/textures/walk_front.data";
-	assets[PLAYER_STATE_SIDE_WALK].texture  = "assets/textures/walk_side.png";
-	assets[PLAYER_STATE_SIDE_WALK].data     = "assets/textures/walk_side.data";
-	assets[PLAYER_STATE_BACK_WALK].texture  = "assets/textures/walk_back.png";
-	assets[PLAYER_STATE_BACK_WALK].data     = "assets/textures/walk_back.data";
+	assets[PLAYER_WALK].texture = "assets/textures/walk.png";
+	assets[PLAYER_WALK].data    = "assets/textures/walk.data";
 
+	// Texture database
 	SDL_Texture *textures[PLAYER_STATE_TOTAL];
-	Animation animations[PLAYER_STATE_TOTAL];
 
+	// Animation database
+	Animation animations[PLAYER_STATE_TOTAL * ANIMATION_STATE_TOTAL];
+	
 	for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
 	{
+		// Load Sprite Positions
+		FILE *file = fopen(assets[i].data, "rb");
+		if (file == NULL) return 1;
+
 		// Load Sprite Sheet
 		SDL_Surface *surface = NULL;
 		surface = IMG_Load(assets[i].texture);
@@ -202,27 +196,26 @@ int main(int argc, char* argv[])
 		textures[i] = SDL_CreateTextureFromSurface(screen.renderer, surface);
 		SDL_FreeSurface(surface);
 
-		// Load Sprite Positions
-		FILE *file = fopen(assets[i].data, "rb");
-		if (file == NULL) return 1;
+		int total_animations = 0;
+		fread(&(total_animations), sizeof(int), 1, file);
 
-		fread(&animations[i].n, sizeof(uint16_t), 1, file);
+		if (total_animations != ANIMATION_STATE_TOTAL) return 1; // Expecting fixed size
 
-		animations[i].sprites = malloc(sizeof(Sprite)*animations[i].n);
-		animations[i].speed = 2;
-		for (uint16_t j = 0; j < animations[i].n; j++)
+		for (int j = 0; j < ANIMATION_STATE_TOTAL; j++)
 		{
-			Data data;
-			fread(&data, sizeof(Data), 1, file);
-			animations[i].sprites[j].position.x = data.x;
-			animations[i].sprites[j].position.y = data.y;
-			animations[i].sprites[j].position.h = data.h;
-			animations[i].sprites[j].position.w = data.w;
-			animations[i].sprites[j].texture = textures[i];
-		}
+			fread(&animations[(i*ANIMATION_STATE_TOTAL) + j].n, sizeof(int), 1, file);
 
+			animations[(i*ANIMATION_STATE_TOTAL) + j].sprites = malloc(sizeof(Sprite)*animations[(i*ANIMATION_STATE_TOTAL) + j].n);
+			animations[(i*ANIMATION_STATE_TOTAL) + j].speed = 2;
+			for (int k = 0; k < animations[(i*ANIMATION_STATE_TOTAL) + j].n; k++)
+			{
+				fread(&(animations[(i*ANIMATION_STATE_TOTAL) + j].sprites[k].position), sizeof(SDL_Rect), 1, file);
+				animations[(i*ANIMATION_STATE_TOTAL) + j].sprites[k].texture = textures[i];
+			}
+		}
 		fclose(file);
 	}
+
 	
 	IMG_Quit();
 
@@ -240,12 +233,6 @@ int main(int argc, char* argv[])
 		PLAYER_DIRECTION_BACK
 	};
 
-	enum PLAYER_STATES
-	{
-		PLAYER_IDLE,
-		PLAYER_WALK
-	};
-
 	const int entity_size = 400;
 	Entity entity[entity_size];
 
@@ -260,12 +247,12 @@ int main(int argc, char* argv[])
 		entity[i].speed.y = 0;
 		entity[i].max_speed.x = 6;
 		entity[i].max_speed.y = 6;
+
 		entity[i].state = PLAYER_WALK;
 		entity[i].direction = PLAYER_DIRECTION_LEFT;
 		
-		entity[i].sprite = &(animations[entity[i].state].sprites[entity[i].direction]);
+		entity[i].sprite = &(animations[entity[i].state + ANIMATION_SIDE].sprites[0]);
 		entity[i].animation_index = 0;
-		entity[i].animation_state = PLAYER_STATE_FRONT_IDLE;
 		entity[i].animation_acc = 0;		
 		
 		entity[i].flip = SDL_FLIP_NONE;
@@ -274,7 +261,6 @@ int main(int argc, char* argv[])
 	Entity *player = &(entity[0]);
 
 	int upscale = 4;
-	int animation_acc = 0;
 
 	while(screen.exit == SDL_GAME_RUN)
 	{
@@ -345,6 +331,7 @@ int main(int argc, char* argv[])
 		for (int i = 0; i < entity_size; i++)
 		{
 			int animation_state;
+
 			// Space update
 			entity[i].rect.x += entity[i].speed.x;
 			entity[i].rect.y += entity[i].speed.y;
@@ -355,22 +342,22 @@ int main(int argc, char* argv[])
 				switch (entity[i].direction)
 				{
 					case PLAYER_DIRECTION_FRONT:{
-						animation_state = PLAYER_STATE_FRONT_IDLE;
+						animation_state = PLAYER_IDLE + ANIMATION_FRONT;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_BACK:{
-						animation_state = PLAYER_STATE_BACK_IDLE;
+						animation_state = PLAYER_IDLE + ANIMATION_BACK;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_LEFT:{
-						animation_state = PLAYER_STATE_SIDE_IDLE;
+						animation_state = PLAYER_IDLE + ANIMATION_SIDE;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_RIGHT:{
-						animation_state = PLAYER_STATE_SIDE_IDLE;
+						animation_state = PLAYER_IDLE + ANIMATION_SIDE;
 						entity[i].flip = SDL_FLIP_HORIZONTAL;
 						break;
 					}
@@ -381,22 +368,22 @@ int main(int argc, char* argv[])
 				switch (entity[i].direction)
 				{
 					case PLAYER_DIRECTION_FRONT:{
-						animation_state = PLAYER_STATE_FRONT_WALK;
+						animation_state = (PLAYER_WALK * ANIMATION_STATE_TOTAL) + ANIMATION_FRONT;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_BACK:{
-						animation_state= PLAYER_STATE_BACK_WALK;
+						animation_state = (PLAYER_WALK * ANIMATION_STATE_TOTAL) + ANIMATION_BACK;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_LEFT:{
-						animation_state = PLAYER_STATE_SIDE_WALK;
+						animation_state = (PLAYER_WALK * ANIMATION_STATE_TOTAL) + ANIMATION_SIDE;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_RIGHT:{
-						animation_state = PLAYER_STATE_SIDE_WALK;
+						animation_state = (PLAYER_WALK * ANIMATION_STATE_TOTAL) + ANIMATION_SIDE;
 						entity[i].flip = SDL_FLIP_HORIZONTAL;
 						break;
 					}
@@ -462,6 +449,10 @@ int main(int argc, char* argv[])
 	for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
 	{
 		SDL_DestroyTexture(textures[i]);
+	}
+
+	for (int i = 0; i < ANIMATION_STATE_TOTAL; i++)
+	{
 		free(animations[i].sprites);
 	}
 
