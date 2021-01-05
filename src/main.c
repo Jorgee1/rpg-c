@@ -238,7 +238,7 @@ int main(int argc, char* argv[])
 
 	for (int i = 0; i < entity_size; i++)
 	{
-		entity[i].rect.x = 100+i;
+		entity[i].rect.x = 100 + i;
 		entity[i].rect.y = 100;
 		entity[i].rect.h = 100;
 		entity[i].rect.w = 100;
@@ -251,7 +251,7 @@ int main(int argc, char* argv[])
 		entity[i].state = PLAYER_WALK;
 		entity[i].direction = PLAYER_DIRECTION_LEFT;
 		
-		entity[i].sprite = &(animations[entity[i].state + ANIMATION_SIDE].sprites[0]);
+		entity[i].sprite = &(animations[(entity[i].state * ANIMATION_STATE_TOTAL) + ANIMATION_SIDE].sprites[0]);
 		entity[i].animation_index = 0;
 		entity[i].animation_acc = 0;		
 		
@@ -342,22 +342,22 @@ int main(int argc, char* argv[])
 				switch (entity[i].direction)
 				{
 					case PLAYER_DIRECTION_FRONT:{
-						animation_state = PLAYER_IDLE + ANIMATION_FRONT;
+						animation_state = (PLAYER_IDLE * ANIMATION_STATE_TOTAL)  + ANIMATION_FRONT;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_BACK:{
-						animation_state = PLAYER_IDLE + ANIMATION_BACK;
+						animation_state = (PLAYER_IDLE * ANIMATION_STATE_TOTAL)  + ANIMATION_BACK;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_LEFT:{
-						animation_state = PLAYER_IDLE + ANIMATION_SIDE;
+						animation_state = (PLAYER_IDLE * ANIMATION_STATE_TOTAL)  + ANIMATION_SIDE;
 						entity[i].flip = SDL_FLIP_NONE;
 						break;
 					}
 					case PLAYER_DIRECTION_RIGHT:{
-						animation_state = PLAYER_IDLE + ANIMATION_SIDE;
+						animation_state = (PLAYER_IDLE * ANIMATION_STATE_TOTAL)  + ANIMATION_SIDE;
 						entity[i].flip = SDL_FLIP_HORIZONTAL;
 						break;
 					}
