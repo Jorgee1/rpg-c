@@ -6,9 +6,9 @@
 #include <SDL_ttf.h>
 #include <SDL_image.h>
 
-#include "utils/sdl.h"
-#include "input/input.h"
-#include "charset/charset.h"
+#include "utils.h"
+#include "controller.h"
+#include "charset.h"
 
 
 typedef struct
@@ -414,7 +414,7 @@ int main(int argc, char* argv[])
 		// Render /////////////////////////////////////////////////////////////////
 		///////////////////////////////////////////////////////////////////////////
 
-		set_render_draw_color(screen.renderer, &screen.clear_color);
+		set_render_draw_color(screen.renderer, screen.clear_color);
 		SDL_RenderClear(screen.renderer);
 
 		for (int i = 0; i < entity_size; i++)
@@ -464,3 +464,4 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
+
