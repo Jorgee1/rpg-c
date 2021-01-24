@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <time.h>
 
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -22,6 +23,9 @@
 
 int main (int argc, char* argv[])
 {
+    time_t rand_seed;
+    srand((unsigned) time(&rand_seed));
+
     Colors colors;
     colors.red   = (SDL_Color) {0xFF, 0x00, 0x00, 0xFF};
     colors.green = (SDL_Color) {0x00, 0xFF, 0x00, 0xFF};
@@ -133,7 +137,7 @@ int main (int argc, char* argv[])
             animations[i][j].sprites = malloc(sizeof(Sprite) * animation_size);
             for (int k=0; k < animation_size; k++)
             {
-                animations[i][j].sprites[k].sheet = &sheet[i];
+                animations[i][j].sprites[k].sheet = sheet[i].texture;
                 animations[i][j].sprites[k].rect.x = k*cell_size;
                 animations[i][j].sprites[k].rect.y = j*cell_size;
                 animations[i][j].sprites[k].rect.h = cell_size;
@@ -169,9 +173,11 @@ int main (int argc, char* argv[])
 
     for (int t=0; t < tileset_size; t++)
     {
-        int w = tileset[t].rect.w;
-        int h = tileset[t].rect.h;
         int size = tileset[t].cell_size;
+
+        int w = tileset[t].rect.w / size;
+        int h = tileset[t].rect.h / size;
+
 
         tiles[t] = malloc(sizeof(Sprite) * w * h);
 
@@ -181,7 +187,7 @@ int main (int argc, char* argv[])
             {
                 int index = x + (y * w);
 
-                tiles[t][index].sheet = &(tileset[t]);
+                tiles[t][index].sheet = tileset[t].texture;
 
                 tiles[t][index].rect.x = x * size;
                 tiles[t][index].rect.y = y * size;
@@ -190,6 +196,38 @@ int main (int argc, char* argv[])
             }
         }
 
+    }
+
+    // map
+    typedef struct
+    {
+        SDL_Rect size;
+        int tileset;
+        int **tiles;
+    } Maps;
+
+    Maps map1;
+    map1.size.x = 0;
+    map1.size.y = 0;
+    map1.size.w = 80;
+    map1.size.h = 60;
+
+    map1.tileset = 0; // Carefull with this value
+
+    map1.tiles = malloc(sizeof(int *) * map1.size.h);
+    for (int y = 0; y < map1.size.h; y++)
+    {
+        map1.tiles[y] = malloc(sizeof(int) * map1.size.w);
+        for (int x = 0; x < map1.size.w; x++)
+        {
+            int size = tileset[map1.tileset].cell_size;
+            int w = tileset[map1.tileset].rect.w / size;
+            int h = tileset[map1.tileset].rect.h / size;
+
+            int index = rand() % size;
+            printf("%i %i\n", index, size);
+            map1.tiles[y][x] = index; // Carefull with this value
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -269,33 +307,28 @@ int main (int argc, char* argv[])
                 SDL_RenderClear(renderer);
 
 
-                for (int i = 0; i < 7; i++)
+                for (int y = 0; y < map1.size.h; y++)
                 {
-                    Sprite *tile = &(tiles[1][i]);
-                    int w = tile->rect.w;
-                    int h = tile->rect.h;
+                    for (int x = 0; x < map1.size.h; x++)
+                    {
+                        int index = map1.tiles[y][x];
 
-                    SDL_Rect rect;
-                    rect.x = i * w * upscale;
-                    rect.y = 0;
-                    rect.w = w * upscale;
-                    rect.h = h * upscale; 
-                    SDL_RenderCopy(renderer, tile->sheet->texture, &(tile->rect), &rect);
+
+                        SDL_Rect rect;
+                        rect.x = x * tiles[map1.tileset][index].rect.w * upscale;
+                        rect.y = y * tiles[map1.tileset][index].rect.h * upscale;
+                        rect.w = tiles[map1.tileset][index].rect.w * upscale;
+                        rect.h = tiles[map1.tileset][index].rect.h * upscale; 
+
+                        SDL_RenderCopy(
+                            renderer,
+                            tiles[map1.tileset][index].sheet,
+                            &(tiles[map1.tileset][index].rect),
+                            &rect
+                        );
+                    }
                 }
 
-                for (int i = 0; i < 7; i++)
-                {
-                    Sprite *tile = &(tiles[0][i]);
-                    int w = tile->rect.w;
-                    int h = tile->rect.h;
-
-                    SDL_Rect rect;
-                    rect.x = i * w * upscale;
-                    rect.y = h * upscale;
-                    rect.w = w * upscale;
-                    rect.h = h * upscale; 
-                    SDL_RenderCopy(renderer, tile->sheet->texture, &(tile->rect), &rect);
-                }
 
                 game_render(&screen, entity, entity_size, upscale);
 

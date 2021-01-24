@@ -105,7 +105,7 @@ void game_render(Screen *screen, Entity entity[], int size, int upscale)
         position.h = entity[i].sprite->rect.h * upscale;
         position.w = entity[i].sprite->rect.w * upscale;
 
-        SDL_Texture *texture = entity[i].sprite->sheet->texture;
+        SDL_Texture *texture = entity[i].sprite->sheet;
 
         SDL_RenderCopy(renderer, texture, &clip, &position);
     }

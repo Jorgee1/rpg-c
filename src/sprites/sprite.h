@@ -14,7 +14,7 @@ typedef struct
 
 typedef struct
 {
-    SpriteSheet *sheet; //Might be better to give a texture pointer
+    SDL_Texture *sheet;
     SDL_Rect rect;
 } Sprite;
 
