@@ -1,0 +1,23 @@
+#include <SDL.h>
+#include <SDL_image.h>
+
+#ifndef SPRITE_H
+#define SPRITE_H
+
+typedef struct
+{
+	SDL_Texture *texture;
+    SDL_Rect rect;
+    char *path;
+    int cell_size;
+} SpriteSheet;
+
+typedef struct
+{
+	SpriteSheet *sheet;
+    SDL_Rect rect;
+} Sprite;
+
+int load_sprite_sheet(SDL_Renderer *, SpriteSheet *, char *, int);
+
+#endif

@@ -5,47 +5,14 @@
 
 #include <SDL.h>
 #include <SDL_ttf.h>
-#include <SDL_image.h>
 
 #include "utils.h"
 #include "controller.h"
 #include "charset.h"
-
-
-typedef struct
-{
-	SDL_Texture *texture;
-    SDL_Rect rect;
-    char *path;
-} SpriteSheet;
-
-int load_sprite_sheet(SDL_Renderer *renderer, SpriteSheet *sheet, char *path)
-{
-    int img_flags = IMG_INIT_PNG;
-    if((IMG_Init(img_flags) & img_flags) != img_flags) return 1;
-
-    sheet->path = path;
-
-    SDL_Surface *surface = NULL;
-    surface = IMG_Load(path);
-    if (surface == NULL) return 1;
-
-    sheet->rect.x = 0;
-    sheet->rect.y = 0;
-    sheet->texture = SDL_CreateTextureFromSurface(renderer, surface);
-
-    SDL_QueryTexture(sheet->texture, NULL, NULL, &sheet->rect.w, &sheet->rect.h);
-    SDL_FreeSurface(surface);
-
-    IMG_Quit();
-    return 0;
-}
-
-typedef struct
-{
-	SpriteSheet *sheet;
-    SDL_Rect rect;
-} Sprite;
+#include "sprites/sprite.h"
+#include "views/index.h"
+#include "views/game/game.h"
+#include "views/start/start.h"
 
 typedef struct
 {
@@ -63,7 +30,7 @@ typedef struct
 	int state;
 
 	int animation_index;
-	int animation_acc;
+	int animation_acc; // For controlling speed
 
 	Sprite *sprite;
 } Entity;
@@ -87,6 +54,8 @@ int main(int argc, char* argv[])
     // SDL INIT ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
 
+    int upscale = 3; // For sprites
+
     Screen screen;
     int init = init_screen(
         &screen,
@@ -97,6 +66,7 @@ int main(int argc, char* argv[])
         SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
     );
     if (init) return 1;
+    screen.view_index = VIEW_START;
 
     ///////////////////////////////////////////////////////////////////////////////////////
     // BUTTONS ////////////////////////////////////////////////////////////////////////////
@@ -119,15 +89,18 @@ int main(int argc, char* argv[])
     int font_size = 30;
 
     const int letters_size = 128;
+    Letter letters_black[letters_size];
     Letter letters_white[letters_size];
     Letter letters_green[letters_size];
     Letter letters_red[letters_size];
+
 
     if (TTF_Init() < 0) return 1;
 
     TTF_Font* font = TTF_OpenFont("assets/fonts/RobotoMono-Regular.ttf", font_size);
     if (font == NULL) return 1;
 
+    create_charset(screen.renderer, font, letters_black, letters_size, colors.black);
     create_charset(screen.renderer, font, letters_white, letters_size, colors.white);
     create_charset(screen.renderer, font, letters_green, letters_size, colors.green);
     create_charset(screen.renderer, font, letters_red,   letters_size,   colors.red);
@@ -166,10 +139,12 @@ int main(int argc, char* argv[])
 
     for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
     {
+        int cell_size = 26;
         int is_loaded = load_sprite_sheet(
             screen.renderer,
             &sheet[i],
-            sprite_sheet_path[i]
+            sprite_sheet_path[i],
+            cell_size
         );
         if (is_loaded) return 1;
     }
@@ -177,22 +152,19 @@ int main(int argc, char* argv[])
     // Animation database
 
     Animation animations[PLAYER_STATE_TOTAL][PLAYER_FACES_TOTAL];
-    int cell_size = 26;
-    int animation_speed = 2;
-
 
     for (int i=0; i < PLAYER_STATE_TOTAL; i++)
     {
-        int animation_size = sheet[i].rect.w / cell_size;
+        int cell_size = sheet[i].cell_size;
+        int animation_size = sheet[i].rect.w / sheet[i].cell_size;
 
         for (int j=0; j < PLAYER_FACES_TOTAL; j++)
         {
+            animations[i][j].speed = 2;
             animations[i][j].n = animation_size;
-            animations[i][j].speed = animation_speed;
             animations[i][j].sprites = malloc(sizeof(Sprite)*animation_size);
             for (int k=0; k < animation_size; k++)
             {
-                printf("X:%i, Y:%i S:%i\n", i*cell_size, j*cell_size, animation_size);
                 animations[i][j].sprites[k].sheet = &sheet[i];
                 animations[i][j].sprites[k].rect.x = k*cell_size;
                 animations[i][j].sprites[k].rect.y = j*cell_size;
@@ -208,8 +180,8 @@ int main(int argc, char* argv[])
     ///////////////////////////////////////////////////////////////////////////////////////
 
     const int entity_size = 500;
-    Entity entity[entity_size];
 
+    Entity entity[entity_size];
     for (int i = 0; i < entity_size; i++)
     {
         entity[i].rect.x = 100 + i;
@@ -222,17 +194,20 @@ int main(int argc, char* argv[])
         entity[i].max_speed.x = 5;
         entity[i].max_speed.y = 5;
 
-        entity[i].state = PLAYER_WALK;
-        entity[i].direction = PLAYER_LEFT;
+        int state = PLAYER_WALK;
+        int direction = PLAYER_LEFT;
+
+        entity[i].state = state;
+        entity[i].direction = direction;
         
-        entity[i].sprite = &(animations[entity[i].state][entity[i].direction].sprites[0]);
+        entity[i].sprite = &(animations[state][direction].sprites[0]);
         entity[i].animation_index = 0;
         entity[i].animation_acc = 0;
     }
 
     Entity *player = &(entity[0]);
 
-    int upscale = 3;
+
 
     while(screen.exit == SDL_GAME_RUN)
     {
@@ -254,105 +229,136 @@ int main(int argc, char* argv[])
 
         update_buttons(&input);
 
-        ///////////////////////////////////////////////////////////////////////////
-        // Action Logic ///////////////////////////////////////////////////////////
-        ///////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////
+        // VIEW INDEX /////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////////////////
 
-        if (input.up.state)
+        switch (screen.view_index)
         {
-            player->speed.y = -player->max_speed.y;
-            player->speed.x = 0;
-            player->state = PLAYER_WALK;
-            player->direction = PLAYER_BACK;
-            
-        }
-        else if (input.down.state)
-        {
-            player->speed.y = player->max_speed.y;
-            player->speed.x = 0;
-            player->state = PLAYER_WALK;
-            player->direction = PLAYER_FRONT;
-        }
-        else if (input.left.state)
-        {
-            player->speed.x = -player->max_speed.x;
-            player->speed.y = 0;
-            player->state = PLAYER_WALK;
-            player->direction = PLAYER_LEFT;
-        }
-        else if (input.right.state)
-        {
-            player->speed.x = player->max_speed.x;
-            player->speed.y = 0;
-            player->state = PLAYER_WALK;
-            player->direction = PLAYER_RIGHT;
-        }
-        else
-        {
-            player->speed.y = 0;
-            player->speed.x = 0;
-            player->state = PLAYER_IDLE;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////
-        // Colition Detection /////////////////////////////////////////////////////
-        ///////////////////////////////////////////////////////////////////////////
-
-        ///////////////////////////////////////////////////////////////////////////
-        // Update World ///////////////////////////////////////////////////////////
-        ///////////////////////////////////////////////////////////////////////////
-
-        for (int i = 0; i < entity_size; i++)
-        {
-
-            // Space update
-            entity[i].rect.x += entity[i].speed.x;
-            entity[i].rect.y += entity[i].speed.y;
-
-
-            entity[i].animation_acc += 1;
-            // animation frame update
-            if (entity[i].animation_acc > animations[entity[i].state][entity[i].direction].speed)
+            case VIEW_START:
             {
-                entity[i].animation_acc = 0;
-                entity[i].animation_index = (entity[i].animation_index + 1) % animations[entity[i].state][entity[i].direction].n;
-            }
+                if (input.start.action_state) screen.view_index = VIEW_GAME;
 
-            // To prevent overflows
-            if (entity[i].animation_index >= animations[entity[i].state][entity[i].direction].n)
+                set_render_draw_color(screen.renderer, screen.clear_color);
+                SDL_RenderClear(screen.renderer);
+
+                render_string(screen.renderer, 0, 0, letters_black, "RPG Test");
+                render_string(screen.renderer, 0, 100, letters_black, "Prest Start");
+                SDL_RenderPresent(screen.renderer);
+            }break;
+
+            case VIEW_GAME:
             {
-                entity[i].animation_index = 0;
-                entity[i].animation_acc = 0;
-            }
-            // Current sprite pointer update
-            entity[i].sprite = &(animations[entity[i].state][entity[i].direction].sprites[entity[i].animation_index]);
+                ///////////////////////////////////////////////////////////////////////////
+                // Action Logic ///////////////////////////////////////////////////////////
+                ///////////////////////////////////////////////////////////////////////////
+
+                if (input.up.state)
+                {
+                    player->speed.y = -player->max_speed.y;
+                    player->speed.x = 0;
+                    player->state = PLAYER_WALK;
+                    player->direction = PLAYER_BACK;
+                }
+                else if (input.down.state)
+                {
+                    player->speed.y = player->max_speed.y;
+                    player->speed.x = 0;
+                    player->state = PLAYER_WALK;
+                    player->direction = PLAYER_FRONT;
+                }
+                else if (input.left.state)
+                {
+                    player->speed.x = -player->max_speed.x;
+                    player->speed.y = 0;
+                    player->state = PLAYER_WALK;
+                    player->direction = PLAYER_LEFT;
+                }
+                else if (input.right.state)
+                {
+                    player->speed.x = player->max_speed.x;
+                    player->speed.y = 0;
+                    player->state = PLAYER_WALK;
+                    player->direction = PLAYER_RIGHT;
+                }
+                else
+                {
+                    player->speed.y = 0;
+                    player->speed.x = 0;
+                    player->state = PLAYER_IDLE;
+                }
+
+                ///////////////////////////////////////////////////////////////////////////
+                // Colition Detection /////////////////////////////////////////////////////
+                ///////////////////////////////////////////////////////////////////////////
+
+                ///////////////////////////////////////////////////////////////////////////
+                // Update World ///////////////////////////////////////////////////////////
+                ///////////////////////////////////////////////////////////////////////////
+
+                for (int i = 0; i < entity_size; i++)
+                {
+                    int state = entity[i].state;
+                    int direction = entity[i].direction;
+
+                    // Space update
+                    entity[i].rect.x += entity[i].speed.x;
+                    entity[i].rect.y += entity[i].speed.y;
+
+                    entity[i].animation_acc += 1;
+
+                    // animation frame update
+                    if (entity[i].animation_acc > animations[state][direction].speed)
+                    {
+                        entity[i].animation_acc = 0;
+                        entity[i].animation_index = (entity[i].animation_index + 1) % animations[state][direction].n;
+                    }
+
+                    // To prevent overflows
+                    if (entity[i].animation_index >= animations[state][direction].n)
+                    {
+                        entity[i].animation_index = 0;
+                        entity[i].animation_acc = 0;
+                    }
+                    // Current sprite pointer update
+                    entity[i].sprite = &(animations[state][direction].sprites[entity[i].animation_index]);
+                }
+
+
+                ///////////////////////////////////////////////////////////////////////////
+                // Render /////////////////////////////////////////////////////////////////
+                ///////////////////////////////////////////////////////////////////////////
+
+                set_render_draw_color(screen.renderer, screen.clear_color);
+                SDL_RenderClear(screen.renderer);
+
+                for (int i = 0; i < entity_size; i++)
+                {
+                    SDL_Rect sprite_position;
+                    sprite_position.x = entity[i].rect.x;
+                    sprite_position.y = entity[i].rect.y;
+                    sprite_position.h = entity[i].sprite->rect.h * upscale;
+                    sprite_position.w = entity[i].sprite->rect.w * upscale;
+
+                    SDL_RenderCopy(
+                        screen.renderer,
+                        entity[i].sprite->sheet->texture,
+                        &(entity[i].sprite->rect),
+                        &sprite_position
+                    );
+
+                }
+                SDL_RenderPresent(screen.renderer);
+            }break;
+
+            default:
+            {
+
+            }break;
         }
 
 
-        ///////////////////////////////////////////////////////////////////////////
-        // Render /////////////////////////////////////////////////////////////////
-        ///////////////////////////////////////////////////////////////////////////
 
-        set_render_draw_color(screen.renderer, screen.clear_color);
-        SDL_RenderClear(screen.renderer);
-
-        for (int i = 0; i < entity_size; i++)
-        {
-            SDL_Rect sprite_position;
-            sprite_position.x = entity[i].rect.x;
-            sprite_position.y = entity[i].rect.y;
-            sprite_position.h = entity[i].sprite->rect.h * upscale;
-            sprite_position.w = entity[i].sprite->rect.w * upscale;
-
-            SDL_RenderCopy(
-                screen.renderer,
-                entity[i].sprite->sheet->texture,
-                &(entity[i].sprite->rect),
-                &sprite_position
-            );
-
-        }
-        SDL_RenderPresent(screen.renderer);
     }
 
 

@@ -1,5 +1,5 @@
-objs/
-bin/
+objs
+bin
 
 .rar
 .game
