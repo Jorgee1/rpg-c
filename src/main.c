@@ -244,6 +244,7 @@ int main(int argc, char* argv[])
 
                 render_string(screen.renderer, 0, 0, letters_black, "RPG Test");
                 render_string(screen.renderer, 0, 100, letters_black, "Prest Start");
+                
                 SDL_RenderPresent(screen.renderer);
             }break;
 
