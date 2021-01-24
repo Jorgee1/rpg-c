@@ -212,7 +212,7 @@ int main (int argc, char* argv[])
     map1.size.w = 80;
     map1.size.h = 60;
 
-    map1.tileset = 0; // Carefull with this value
+    map1.tileset = 1; // Carefull with this value
 
     map1.tiles = malloc(sizeof(int *) * map1.size.h);
     for (int y = 0; y < map1.size.h; y++)
@@ -225,7 +225,6 @@ int main (int argc, char* argv[])
             int h = tileset[map1.tileset].rect.h / size;
 
             int index = rand() % size;
-            printf("%i %i\n", index, size);
             map1.tiles[y][x] = index; // Carefull with this value
         }
     }
