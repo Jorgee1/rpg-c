@@ -6,7 +6,7 @@
 
 typedef struct
 {
-	SDL_Texture *texture;
+    SDL_Texture *texture;
     SDL_Rect rect;
     char *path;
     int cell_size;
@@ -14,9 +14,16 @@ typedef struct
 
 typedef struct
 {
-	SpriteSheet *sheet;
+    SpriteSheet *sheet;
     SDL_Rect rect;
 } Sprite;
+
+typedef struct
+{
+    int n;
+    int speed;
+    Sprite *sprites;
+} Animation;
 
 int load_sprite_sheet(SDL_Renderer *, SpriteSheet *, char *, int);
 

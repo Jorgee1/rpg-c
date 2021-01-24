@@ -156,10 +156,8 @@ int main (int argc, char* argv[])
         entity[i].rect.h = 100;
         entity[i].rect.w = 100;
 
-        entity[i].speed.x = 0;
-        entity[i].speed.y = 0;
-        entity[i].max_speed.x = 5;
-        entity[i].max_speed.y = 5;
+        entity[i].speed = {0, 0};
+        entity[i].max_speed = {5, 5};
 
         int state = PLAYER_WALK;
         int direction = PLAYER_LEFT;

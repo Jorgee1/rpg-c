@@ -21,13 +21,6 @@ enum PLAYER_FACES
 
 typedef struct
 {
-	int n;
-	int speed;
-	Sprite *sprites;
-} Animation;
-
-typedef struct
-{
 	SDL_Rect rect;
 	SDL_Point speed;
 	SDL_Point max_speed;
