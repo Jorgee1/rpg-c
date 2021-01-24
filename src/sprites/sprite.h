@@ -14,7 +14,7 @@ typedef struct
 
 typedef struct
 {
-    SpriteSheet *sheet;
+    SpriteSheet *sheet; //Might be better to give a texture pointer
     SDL_Rect rect;
 } Sprite;
 
@@ -25,6 +25,11 @@ typedef struct
     Sprite *sprites;
 } Animation;
 
-int load_sprite_sheet(SDL_Renderer *, SpriteSheet *, char *, int);
+int load_sprite_sheet(
+    SDL_Renderer *,
+    SpriteSheet *,
+    char *,
+    int
+);
 
 #endif

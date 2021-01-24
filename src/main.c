@@ -86,7 +86,7 @@ int main (int argc, char* argv[])
     font = NULL;
 
     ///////////////////////////////////////////////////////////////////////////////////////
-    // TEXTURES ///////////////////////////////////////////////////////////////////////////
+    // CHARACTERS /////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
 
     // Load sprite sheets
@@ -130,7 +130,7 @@ int main (int argc, char* argv[])
         {
             animations[i][j].speed = 2;
             animations[i][j].n = animation_size;
-            animations[i][j].sprites = malloc(sizeof(Sprite)*animation_size);
+            animations[i][j].sprites = malloc(sizeof(Sprite) * animation_size);
             for (int k=0; k < animation_size; k++)
             {
                 animations[i][j].sprites[k].sheet = &sheet[i];
@@ -140,6 +140,56 @@ int main (int argc, char* argv[])
                 animations[i][j].sprites[k].rect.w = cell_size;
             }
         }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+    // MAPS ///////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////
+    
+    const int tileset_size = 2;
+
+    char *tileset_path[tileset_size] = {
+        "assets/textures/inside.png",
+        "assets/textures/outside.png"
+    };
+
+    SpriteSheet tileset[tileset_size];
+
+    for (int i=0; i < tileset_size; i++)
+    {
+        int cell_size = 16;
+        char *path = tileset_path[i];
+        SDL_Renderer *renderer = screen.renderer;
+
+        load_sprite_sheet(renderer, &tileset[i], path, cell_size);
+    }
+
+    // tile database
+    Sprite **tiles = malloc(sizeof(Sprite *) * tileset_size);
+
+    for (int t=0; t < tileset_size; t++)
+    {
+        int w = tileset[t].rect.w;
+        int h = tileset[t].rect.h;
+        int size = tileset[t].cell_size;
+
+        tiles[t] = malloc(sizeof(Sprite) * w * h);
+
+        for (int y=0; y < h; y++)
+        {
+            for (int x=0; x < w; x++)
+            {
+                int index = x + (y * w);
+
+                tiles[t][index].sheet = &(tileset[t]);
+
+                tiles[t][index].rect.x = x * size;
+                tiles[t][index].rect.y = y * size;
+                tiles[t][index].rect.w = size;
+                tiles[t][index].rect.h = size;
+            }
+        }
+
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -156,8 +206,8 @@ int main (int argc, char* argv[])
         entity[i].rect.h = 100;
         entity[i].rect.w = 100;
 
-        entity[i].speed = {0, 0};
-        entity[i].max_speed = {5, 5};
+        entity[i].speed = (SDL_Point) {0, 0};
+        entity[i].max_speed = (SDL_Point) {5, 5};
 
         int state = PLAYER_WALK;
         int direction = PLAYER_LEFT;
@@ -210,7 +260,47 @@ int main (int argc, char* argv[])
             {
                 game_update_input(&screen, player);
                 game_update_word(animations, entity, entity_size);
-                game_update_screen(&screen, entity, entity_size, upscale);
+                // game_update_screen(&screen, entity, entity_size, upscale);
+
+
+                SDL_Renderer *renderer = screen.renderer;
+
+                set_render_draw_color(renderer, screen.clear_color);
+                SDL_RenderClear(renderer);
+
+
+                for (int i = 0; i < 7; i++)
+                {
+                    Sprite *tile = &(tiles[1][i]);
+                    int w = tile->rect.w;
+                    int h = tile->rect.h;
+
+                    SDL_Rect rect;
+                    rect.x = i * w * upscale;
+                    rect.y = 0;
+                    rect.w = w * upscale;
+                    rect.h = h * upscale; 
+                    SDL_RenderCopy(renderer, tile->sheet->texture, &(tile->rect), &rect);
+                }
+
+                for (int i = 0; i < 7; i++)
+                {
+                    Sprite *tile = &(tiles[0][i]);
+                    int w = tile->rect.w;
+                    int h = tile->rect.h;
+
+                    SDL_Rect rect;
+                    rect.x = i * w * upscale;
+                    rect.y = h * upscale;
+                    rect.w = w * upscale;
+                    rect.h = h * upscale; 
+                    SDL_RenderCopy(renderer, tile->sheet->texture, &(tile->rect), &rect);
+                }
+
+                game_render(&screen, entity, entity_size, upscale);
+
+                SDL_RenderPresent(renderer);
+
             }break;
 
             case VIEW_PAUSE:
@@ -240,6 +330,18 @@ int main (int argc, char* argv[])
         SDL_DestroyTexture(sheet[i].texture);
         sheet[i].texture = NULL;
     }
+
+    for (int i = 0; i < tileset_size; i++)
+    {
+        SDL_DestroyTexture(tileset[i].texture);
+        tileset[i].texture = NULL;
+    }
+
+    for (int t=0; t < tileset_size; t++)
+    {
+        free(tiles[t]);
+    }
+    free(tiles);
 
     for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
     {
