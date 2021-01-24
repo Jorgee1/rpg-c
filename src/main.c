@@ -22,11 +22,6 @@
 
 int main (int argc, char* argv[])
 {
-
-    ///////////////////////////////////////////////////////////////////////////////////////
-    // COLOR //////////////////////////////////////////////////////////////////////////////
-    ///////////////////////////////////////////////////////////////////////////////////////
-
     Colors colors;
     colors.red   = (SDL_Color) {0xFF, 0x00, 0x00, 0xFF};
     colors.green = (SDL_Color) {0x00, 0xFF, 0x00, 0xFF};
@@ -50,21 +45,17 @@ int main (int argc, char* argv[])
         SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
     );
     if (init) return 1;
+
     screen.view_index = VIEW_START;
 
-    ///////////////////////////////////////////////////////////////////////////////////////
-    // BUTTONS ////////////////////////////////////////////////////////////////////////////
-    ///////////////////////////////////////////////////////////////////////////////////////
+    screen.input.up     = init_button(SDL_SCANCODE_UP);
+    screen.input.down   = init_button(SDL_SCANCODE_DOWN);
+    screen.input.left   = init_button(SDL_SCANCODE_LEFT);
+    screen.input.right  = init_button(SDL_SCANCODE_RIGHT);
 
-    Input input;
-    input.up     = init_button(SDL_SCANCODE_UP);
-    input.down   = init_button(SDL_SCANCODE_DOWN);
-    input.left   = init_button(SDL_SCANCODE_LEFT);
-    input.right  = init_button(SDL_SCANCODE_RIGHT);
-
-    input.action = init_button(SDL_SCANCODE_Z);
-    input.cancel = init_button(SDL_SCANCODE_X);
-    input.start  = init_button(SDL_SCANCODE_RETURN);
+    screen.input.action = init_button(SDL_SCANCODE_Z);
+    screen.input.cancel = init_button(SDL_SCANCODE_X);
+    screen.input.start  = init_button(SDL_SCANCODE_RETURN);
 
     ///////////////////////////////////////////////////////////////////////////////////////
     // TTF INIT ///////////////////////////////////////////////////////////////////////////
@@ -90,14 +81,13 @@ int main (int argc, char* argv[])
     create_charset(screen.renderer, font, letters_red,   letters_size,   colors.red);
 
     TTF_CloseFont(font);
+    TTF_Quit();
+
     font = NULL;
 
     ///////////////////////////////////////////////////////////////////////////////////////
     // TEXTURES ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
-
-
-
 
     // Load sprite sheets
     char* sprite_sheet_path[PLAYER_STATE_TOTAL] = {
@@ -109,7 +99,7 @@ int main (int argc, char* argv[])
 
     for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
     {
-        int cell_size = 26;
+        int cell_size = 26; // spritesheet is divided in a 26x26 grid
         int is_loaded = load_sprite_sheet(
             screen.renderer,
             &sheet[i],
@@ -122,13 +112,15 @@ int main (int argc, char* argv[])
     // Animation database
 
     Animation **animations; // declaring using [][] crashes the program
-    animations = malloc(sizeof(Animation *) * PLAYER_STATE_TOTAL);
 
+    // Alocationg space
+    animations = malloc(sizeof(Animation *) * PLAYER_STATE_TOTAL);
     for (int i=0; i < PLAYER_STATE_TOTAL; i++)
     {
         animations[i] = malloc(sizeof(Animation)*PLAYER_FACES_TOTAL);
     }
 
+    // Initialization
     for (int i=0; i < PLAYER_STATE_TOTAL; i++)
     {
         int cell_size = sheet[i].cell_size;
@@ -202,7 +194,7 @@ int main (int argc, char* argv[])
         // Check Keyboard /////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////////////////
 
-        update_buttons(&input);
+        update_buttons(&(screen.input));
 
         ///////////////////////////////////////////////////////////////////////////////////
         // VIEW INDEX /////////////////////////////////////////////////////////////////////
@@ -212,48 +204,21 @@ int main (int argc, char* argv[])
         {
             case VIEW_START:
             {
-                if (input.start.action_state)
-                {
-                    screen.view_index = VIEW_GAME;
-                    break;
-                }
-
-                set_render_draw_color(screen.renderer, screen.clear_color);
-                SDL_RenderClear(screen.renderer);
-
-                render_string(screen.renderer, 0, 0, letters_black, "RPG Test");
-                render_string(screen.renderer, 0, 100, letters_black, "Prest Start");
-                
-                SDL_RenderPresent(screen.renderer);
+                start_update_input(&screen);
+                start_render(&screen, letters_black);
             }break;
 
             case VIEW_GAME:
             {
-                ///////////////////////////////////////////////////////////////////////////
-                // Action Logic ///////////////////////////////////////////////////////////
-                ///////////////////////////////////////////////////////////////////////////
-                
-                game_update_input(&input, player);
-
-                ///////////////////////////////////////////////////////////////////////////
-                // Colition Detection /////////////////////////////////////////////////////
-                ///////////////////////////////////////////////////////////////////////////
-
-                ///////////////////////////////////////////////////////////////////////////
-                // Update World ///////////////////////////////////////////////////////////
-                ///////////////////////////////////////////////////////////////////////////
-
+                game_update_input(&screen, player);
                 game_update_word(animations, entity, entity_size);
+                game_update_screen(&screen, entity, entity_size, upscale);
+            }break;
 
-                ///////////////////////////////////////////////////////////////////////////
-                // Render /////////////////////////////////////////////////////////////////
-                ///////////////////////////////////////////////////////////////////////////
-                set_render_draw_color(screen.renderer, screen.clear_color);
-                SDL_RenderClear(screen.renderer);
-
-                game_render(&screen, entity, entity_size, upscale);
-                
-                SDL_RenderPresent(screen.renderer);
+            case VIEW_PAUSE:
+            {
+                pause_update_input(&screen);
+                pause_update_screen(&screen, entity, entity_size, upscale, letters_black);
             }break;
 
             default:
@@ -261,15 +226,13 @@ int main (int argc, char* argv[])
 
             }break;
         }
-
-
-
     }
 
 
     ///////////////////////////////////////////////////////////////////////////////////////
     // Cleanup ////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
+    
     destroy_charset(letters_white, letters_size);
     destroy_charset(letters_green, letters_size);
     destroy_charset(letters_red,   letters_size);
@@ -303,7 +266,6 @@ int main (int argc, char* argv[])
     screen.renderer = NULL;
     screen.window = NULL;
 
-    TTF_Quit();
     SDL_Quit();
 
     return 0;
