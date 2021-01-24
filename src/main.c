@@ -121,7 +121,13 @@ int main (int argc, char* argv[])
 
     // Animation database
 
-    Animation animations[PLAYER_STATE_TOTAL][PLAYER_FACES_TOTAL];
+    Animation **animations; // declaring using [][] crashes the program
+    animations = malloc(sizeof(Animation *) * PLAYER_STATE_TOTAL);
+
+    for (int i=0; i < PLAYER_STATE_TOTAL; i++)
+    {
+        animations[i] = malloc(sizeof(Animation)*PLAYER_FACES_TOTAL);
+    }
 
     for (int i=0; i < PLAYER_STATE_TOTAL; i++)
     {
@@ -206,7 +212,11 @@ int main (int argc, char* argv[])
         {
             case VIEW_START:
             {
-                if (input.start.action_state) screen.view_index = VIEW_GAME;
+                if (input.start.action_state)
+                {
+                    screen.view_index = VIEW_GAME;
+                    break;
+                }
 
                 set_render_draw_color(screen.renderer, screen.clear_color);
                 SDL_RenderClear(screen.renderer);
@@ -223,7 +233,7 @@ int main (int argc, char* argv[])
                 // Action Logic ///////////////////////////////////////////////////////////
                 ///////////////////////////////////////////////////////////////////////////
                 
-                update_player_input(&input, player);
+                game_update_input(&input, player);
 
                 ///////////////////////////////////////////////////////////////////////////
                 // Colition Detection /////////////////////////////////////////////////////
@@ -233,58 +243,16 @@ int main (int argc, char* argv[])
                 // Update World ///////////////////////////////////////////////////////////
                 ///////////////////////////////////////////////////////////////////////////
 
-                for (int i = 0; i < entity_size; i++)
-                {
-                    int state = entity[i].state;
-                    int direction = entity[i].direction;
-
-                    // Space update
-                    entity[i].rect.x += entity[i].speed.x;
-                    entity[i].rect.y += entity[i].speed.y;
-
-                    entity[i].animation_acc += 1;
-
-                    // animation frame update
-                    if (entity[i].animation_acc > animations[state][direction].speed)
-                    {
-                        entity[i].animation_acc = 0;
-                        entity[i].animation_index = (entity[i].animation_index + 1) % animations[state][direction].n;
-                    }
-
-                    // To prevent overflows
-                    if (entity[i].animation_index >= animations[state][direction].n)
-                    {
-                        entity[i].animation_index = 0;
-                        entity[i].animation_acc = 0;
-                    }
-                    // Current sprite pointer update
-                    entity[i].sprite = &(animations[state][direction].sprites[entity[i].animation_index]);
-                }
-
+                game_update_word(animations, entity, entity_size);
 
                 ///////////////////////////////////////////////////////////////////////////
                 // Render /////////////////////////////////////////////////////////////////
                 ///////////////////////////////////////////////////////////////////////////
-
                 set_render_draw_color(screen.renderer, screen.clear_color);
                 SDL_RenderClear(screen.renderer);
 
-                for (int i = 0; i < entity_size; i++)
-                {
-                    SDL_Rect sprite_position;
-                    sprite_position.x = entity[i].rect.x;
-                    sprite_position.y = entity[i].rect.y;
-                    sprite_position.h = entity[i].sprite->rect.h * upscale;
-                    sprite_position.w = entity[i].sprite->rect.w * upscale;
-
-                    SDL_RenderCopy(
-                        screen.renderer,
-                        entity[i].sprite->sheet->texture,
-                        &(entity[i].sprite->rect),
-                        &sprite_position
-                    );
-
-                }
+                game_render(&screen, entity, entity_size, upscale);
+                
                 SDL_RenderPresent(screen.renderer);
             }break;
 
@@ -321,6 +289,14 @@ int main (int argc, char* argv[])
         }
 
     }
+
+    for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
+    {
+        free(animations[i]);
+        animations[i] = NULL;
+    }
+    free(animations);
+    animations = NULL;
 
     SDL_DestroyRenderer(screen.renderer);
     SDL_DestroyWindow(screen.window);
