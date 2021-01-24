@@ -4,7 +4,8 @@
 
 enum VIEWS_INDEX{
     VIEW_START,
-    VIEW_GAME
+    VIEW_GAME,
+    VIEW_PAUSE
 };
 
 

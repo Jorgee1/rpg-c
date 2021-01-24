@@ -9,34 +9,18 @@
 #include "utils.h"
 #include "controller.h"
 #include "charset.h"
+
+#include "entity/entity.h"
 #include "sprites/sprite.h"
+
 #include "views/index.h"
 #include "views/game/game.h"
 #include "views/start/start.h"
-
-typedef struct
-{
-	int n;
-	int speed;
-	Sprite *sprites;
-} Animation;
-
-typedef struct
-{
-	SDL_Rect rect;
-	SDL_Point speed;
-	SDL_Point max_speed;
-	int direction;
-	int state;
-
-	int animation_index;
-	int animation_acc; // For controlling speed
-
-	Sprite *sprite;
-} Entity;
+#include "views/pause/pause.h"
 
 
-int main(int argc, char* argv[])
+
+int main (int argc, char* argv[])
 {
 
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -112,21 +96,7 @@ int main(int argc, char* argv[])
     // TEXTURES ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
 
-    enum PLAYER_STATES
-    {
-        PLAYER_IDLE,
-        PLAYER_WALK,
-        PLAYER_STATE_TOTAL
-    };
 
-    enum PLAYER_FACES
-    {
-        PLAYER_FRONT,
-        PLAYER_RIGHT,
-        PLAYER_LEFT,
-        PLAYER_BACK,
-        PLAYER_FACES_TOTAL
-    };
 
 
     // Load sprite sheets
@@ -174,17 +144,16 @@ int main(int argc, char* argv[])
         }
     }
 
-
     ///////////////////////////////////////////////////////////////////////////////////////
     // GAME INIT //////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
 
-    const int entity_size = 500;
+    const int entity_size = 10;
 
     Entity entity[entity_size];
     for (int i = 0; i < entity_size; i++)
     {
-        entity[i].rect.x = 100 + i;
+        entity[i].rect.x = 90 + i*60;
         entity[i].rect.y = 100;
         entity[i].rect.h = 100;
         entity[i].rect.w = 100;
@@ -253,41 +222,8 @@ int main(int argc, char* argv[])
                 ///////////////////////////////////////////////////////////////////////////
                 // Action Logic ///////////////////////////////////////////////////////////
                 ///////////////////////////////////////////////////////////////////////////
-
-                if (input.up.state)
-                {
-                    player->speed.y = -player->max_speed.y;
-                    player->speed.x = 0;
-                    player->state = PLAYER_WALK;
-                    player->direction = PLAYER_BACK;
-                }
-                else if (input.down.state)
-                {
-                    player->speed.y = player->max_speed.y;
-                    player->speed.x = 0;
-                    player->state = PLAYER_WALK;
-                    player->direction = PLAYER_FRONT;
-                }
-                else if (input.left.state)
-                {
-                    player->speed.x = -player->max_speed.x;
-                    player->speed.y = 0;
-                    player->state = PLAYER_WALK;
-                    player->direction = PLAYER_LEFT;
-                }
-                else if (input.right.state)
-                {
-                    player->speed.x = player->max_speed.x;
-                    player->speed.y = 0;
-                    player->state = PLAYER_WALK;
-                    player->direction = PLAYER_RIGHT;
-                }
-                else
-                {
-                    player->speed.y = 0;
-                    player->speed.x = 0;
-                    player->state = PLAYER_IDLE;
-                }
+                
+                update_player_input(&input, player);
 
                 ///////////////////////////////////////////////////////////////////////////
                 // Colition Detection /////////////////////////////////////////////////////
