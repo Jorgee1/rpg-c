@@ -9,13 +9,14 @@ void pause_update_input(Screen *screen)
     }
 }
 
-void pause_update_screen(Screen *screen, Entity entity[], int size, int upscale, Letter *letters)
+void pause_update_screen(Screen *screen, Entity entity[], Map *map, int size, int upscale, Letter *letters)
 {
     SDL_Renderer *renderer = screen->renderer;
 
     set_render_draw_color(renderer, screen->clear_color);
     SDL_RenderClear(renderer);
 
+    game_render_world(screen, map, upscale);
     game_render(screen, entity, size, upscale);
     render_string(renderer, 0, 0, letters, "Pause");
 

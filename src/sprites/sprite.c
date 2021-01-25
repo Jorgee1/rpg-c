@@ -50,7 +50,7 @@ void load_tileset(TileSet *tileset, SpriteSheet *sheet)
 
     tileset->n = n;
     
-    tileset->sprites = malloc(sizeof(TileSet) * n);
+    tileset->sprites = malloc(sizeof(Sprite) * n);
     for (int y = 0; y < h; y++)
     {
         for (int x = 0; x < w; x++)
@@ -68,4 +68,32 @@ void delete_tileset(TileSet *tileset)
 {
     free(tileset->sprites);
     tileset->n = 0;
+}
+
+
+void map_render(SDL_Renderer *renderer, Map *map, int upscale)
+{
+    for (int y = 0; y < map->size.h; y++)
+    {
+        for (int x = 0; x < map->size.w; x++)
+        {
+            int index = map->indexes[y][x];
+
+            Sprite *sprites = &map->tiles->sprites[index];
+
+            SDL_Rect rect;
+            rect.x = x * sprites->rect.w * upscale;
+            rect.y = y * sprites->rect.h * upscale;
+            rect.w = sprites->rect.w * upscale;
+            rect.h = sprites->rect.h * upscale; 
+
+            SDL_RenderCopy(
+                renderer,
+                sprites->texture,
+                &sprites->rect,
+                &rect
+            );
+        }
+    }
+
 }

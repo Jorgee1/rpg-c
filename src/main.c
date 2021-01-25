@@ -23,7 +23,6 @@
 
 int main (int argc, char* argv[])
 {
-
     time_t rand_seed;
     srand((unsigned) time(&rand_seed));
 
@@ -141,9 +140,9 @@ int main (int argc, char* argv[])
             {
                 int x = k * cell_size;
                 int y = j * cell_size;
-                Sprite *sprite = &(animations[i][j].sprites[k]);
+                Sprite *sprite = &animations[i][j].sprites[k];
 
-                load_sprite(sprite, &(sheet[i]), x, y, cell_size);
+                load_sprite(sprite, &sheet[i], x, y, cell_size);
             }
         }
     }
@@ -170,34 +169,39 @@ int main (int argc, char* argv[])
         load_spritesheet(&tile_texture[i], renderer, path, cell_size);
     }
 
-    TileSet *tiles = malloc(sizeof(TileSet *) * tileset_size);
+    TileSet *tiles = malloc(sizeof(TileSet) * tileset_size);
+
     for (int i = 0; i < tileset_size; i++)
     {
-        load_tileset(&(tiles[i]), &(tile_texture[i]));
+        load_tileset(&tiles[i], &tile_texture[i]);
     }
 
     // map
 
-    Map map1;
-    map1.size.x = 0;
-    map1.size.y = 0;
-    map1.size.w = 40;
-    map1.size.h = 30;
+    Map maps[tileset_size];
 
-    map1.tiles = &(tiles[1]); // Carefull with this value
-
-    map1.indexes = malloc(sizeof(int *) * map1.size.h);
-    for (int y = 0; y < map1.size.h; y++)
+    for (int i = 0; i < tileset_size; i++)
     {
-        map1.indexes[y] = malloc(sizeof(int) * map1.size.w);
-        for (int x = 0; x < map1.size.w; x++)
+        maps[i].size.x = 0;
+        maps[i].size.y = 0;
+        maps[i].size.w = 40;
+        maps[i].size.h = 30;
+
+        maps[i].tiles = &tiles[1]; // Carefull with this value
+
+        maps[i].indexes = malloc(sizeof(int *) * maps[i].size.h);
+        for (int y = 0; y < maps[i].size.h; y++)
         {
-            int index = rand() % map1.tiles->n;
-            //int index = x + y * map1.size.w;
-            map1.indexes[y][x] = index; // Carefull with this value
+            maps[i].indexes[y] = malloc(sizeof(int) * maps[i].size.w);
+            for (int x = 0; x < maps[i].size.w; x++)
+            {
+                int index = rand() % maps[i].tiles->n;
+                maps[i].indexes[y][x] = index; // Carefull with this value
+            }
         }
     }
 
+    Map *map1 = &maps[1];
     ///////////////////////////////////////////////////////////////////////////////////////
     // GAME INIT //////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -221,12 +225,12 @@ int main (int argc, char* argv[])
         entity[i].state = state;
         entity[i].direction = direction;
         
-        entity[i].sprite = &(animations[state][direction].sprites[0]);
+        entity[i].sprite = &animations[state][direction].sprites[0];
         entity[i].animation_index = 0;
         entity[i].animation_acc = 0;
     }
 
-    Entity *player = &(entity[0]);
+    Entity *player = &entity[0];
 
 
 
@@ -266,49 +270,13 @@ int main (int argc, char* argv[])
             {
                 game_update_input(&screen, player);
                 game_update_word(animations, entity, entity_size);
-                // game_update_screen(&screen, entity, entity_size, upscale);
-
-
-                SDL_Renderer *renderer = screen.renderer;
-
-                set_render_draw_color(renderer, screen.clear_color);
-                SDL_RenderClear(renderer);
-
-
-                for (int y = 0; y < map1.size.h; y++)
-                {
-                    for (int x = 0; x < map1.size.w; x++)
-                    {
-                        int index = map1.indexes[y][x];
-
-                        Sprite *sprites = &(map1.tiles->sprites[index]);
-
-                        SDL_Rect rect;
-                        rect.x = x * sprites->rect.w * upscale;
-                        rect.y = y * sprites->rect.h * upscale;
-                        rect.w = sprites->rect.w * upscale;
-                        rect.h = sprites->rect.h * upscale; 
-
-                        SDL_RenderCopy(
-                            renderer,
-                            sprites->texture,
-                            &(sprites->rect),
-                            &rect
-                        );
-                    }
-                }
-
-
-                game_render(&screen, entity, entity_size, upscale);
-
-                SDL_RenderPresent(renderer);
-
+                game_update_screen(&screen, entity, map1, entity_size, upscale);
             }break;
 
             case VIEW_PAUSE:
             {
                 pause_update_input(&screen);
-                pause_update_screen(&screen, entity, entity_size, upscale, letters_black);
+                pause_update_screen(&screen, entity, map1, entity_size, upscale, letters_black);
             }break;
 
             default:
@@ -329,17 +297,18 @@ int main (int argc, char* argv[])
 
     for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
     {
-        delete_spritesheet(&(sheet[i]));
+        delete_spritesheet(&sheet[i]);
+    }
+
+
+    for (int i = 0; i < tileset_size; i++)
+    {
+        delete_spritesheet(&tile_texture[i]);
     }
 
     for (int i = 0; i < tileset_size; i++)
     {
-        delete_spritesheet(&(tile_texture[i]));
-    }
-
-    for (int i = 0; i < tileset_size; i++)
-    {
-        delete_tileset(&(tiles[i]));
+        delete_tileset(&tiles[i]);
     }
 
 
@@ -353,6 +322,17 @@ int main (int argc, char* argv[])
 
     }
 
+
+    for (int i = 0; i < tileset_size; i++)
+    {
+        for (int y = 0; y < maps[i].size.h; y++)
+        {
+            free(maps[i].indexes[y]);
+        }
+        free(maps[i].indexes);
+    }
+
+
     for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
     {
         free(animations[i]);
@@ -365,6 +345,7 @@ int main (int argc, char* argv[])
     SDL_DestroyWindow(screen.window);
     screen.renderer = NULL;
     screen.window = NULL;
+
     SDL_Quit();
     return 0;
 }

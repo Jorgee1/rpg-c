@@ -40,6 +40,7 @@ typedef struct
     int **indexes;
 } Map;
 
+void map_render(SDL_Renderer *, Map *, int);
 
 typedef struct
 {

@@ -9,6 +9,6 @@
 #define PAUSE_H
 
 void pause_update_input(Screen *);
-void pause_update_screen(Screen *, Entity [], int, int, Letter *);
+void pause_update_screen(Screen *, Entity [], Map *, int, int, Letter *);
 
 #endif

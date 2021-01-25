@@ -11,8 +11,9 @@
 
 void game_update_input(Screen *, Entity *);
 void game_update_word(Animation **, Entity [], int);
-void game_update_screen(Screen *, Entity [], int, int);
+void game_update_screen(Screen *, Entity [], Map*, int, int);
 
+void game_render_world(Screen *, Map*, int);
 void game_render(Screen *, Entity [], int, int);
 
 #endif
