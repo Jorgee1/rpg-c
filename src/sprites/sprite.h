@@ -12,11 +12,34 @@ typedef struct
     int cell_size;
 } SpriteSheet;
 
+int load_spritesheet(SpriteSheet *, SDL_Renderer *, char *, int);
+void delete_spritesheet(SpriteSheet *);
+
 typedef struct
 {
-    SDL_Texture *sheet;
+    SDL_Texture *texture;
     SDL_Rect rect;
 } Sprite;
+
+void load_sprite(Sprite *, SpriteSheet *, int, int, int);
+
+
+typedef struct
+{
+    int n;
+    Sprite *sprites;
+} TileSet;
+
+void load_tileset(TileSet *, SpriteSheet *);
+void delete_tileset(TileSet *);
+
+typedef struct
+{
+    SDL_Rect size;
+    TileSet *tiles;
+    int **indexes;
+} Map;
+
 
 typedef struct
 {
@@ -25,11 +48,5 @@ typedef struct
     Sprite *sprites;
 } Animation;
 
-int load_sprite_sheet(
-    SDL_Renderer *,
-    SpriteSheet *,
-    char *,
-    int
-);
 
 #endif

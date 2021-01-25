@@ -23,6 +23,7 @@
 
 int main (int argc, char* argv[])
 {
+
     time_t rand_seed;
     srand((unsigned) time(&rand_seed));
 
@@ -104,9 +105,9 @@ int main (int argc, char* argv[])
     for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
     {
         int cell_size = 26; // spritesheet is divided in a 26x26 grid
-        int is_loaded = load_sprite_sheet(
-            screen.renderer,
+        int is_loaded = load_spritesheet(
             &sheet[i],
+            screen.renderer,
             sprite_sheet_path[i],
             cell_size
         );
@@ -121,7 +122,7 @@ int main (int argc, char* argv[])
     animations = malloc(sizeof(Animation *) * PLAYER_STATE_TOTAL);
     for (int i=0; i < PLAYER_STATE_TOTAL; i++)
     {
-        animations[i] = malloc(sizeof(Animation)*PLAYER_FACES_TOTAL);
+        animations[i] = malloc(sizeof(Animation) * PLAYER_FACES_TOTAL);
     }
 
     // Initialization
@@ -130,6 +131,7 @@ int main (int argc, char* argv[])
         int cell_size = sheet[i].cell_size;
         int animation_size = sheet[i].rect.w / sheet[i].cell_size;
 
+
         for (int j=0; j < PLAYER_FACES_TOTAL; j++)
         {
             animations[i][j].speed = 2;
@@ -137,11 +139,11 @@ int main (int argc, char* argv[])
             animations[i][j].sprites = malloc(sizeof(Sprite) * animation_size);
             for (int k=0; k < animation_size; k++)
             {
-                animations[i][j].sprites[k].sheet = sheet[i].texture;
-                animations[i][j].sprites[k].rect.x = k*cell_size;
-                animations[i][j].sprites[k].rect.y = j*cell_size;
-                animations[i][j].sprites[k].rect.h = cell_size;
-                animations[i][j].sprites[k].rect.w = cell_size;
+                int x = k * cell_size;
+                int y = j * cell_size;
+                Sprite *sprite = &(animations[i][j].sprites[k]);
+
+                load_sprite(sprite, &(sheet[i]), x, y, cell_size);
             }
         }
     }
@@ -149,7 +151,7 @@ int main (int argc, char* argv[])
     ///////////////////////////////////////////////////////////////////////////////////////
     // MAPS ///////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
-    
+
     const int tileset_size = 2;
 
     char *tileset_path[tileset_size] = {
@@ -157,7 +159,7 @@ int main (int argc, char* argv[])
         "assets/textures/outside.png"
     };
 
-    SpriteSheet tileset[tileset_size];
+    SpriteSheet tile_texture[tileset_size];
 
     for (int i=0; i < tileset_size; i++)
     {
@@ -165,67 +167,34 @@ int main (int argc, char* argv[])
         char *path = tileset_path[i];
         SDL_Renderer *renderer = screen.renderer;
 
-        load_sprite_sheet(renderer, &tileset[i], path, cell_size);
+        load_spritesheet(&tile_texture[i], renderer, path, cell_size);
     }
 
-    // tile database
-    Sprite **tiles = malloc(sizeof(Sprite *) * tileset_size);
-
-    for (int t=0; t < tileset_size; t++)
+    TileSet *tiles = malloc(sizeof(TileSet *) * tileset_size);
+    for (int i = 0; i < tileset_size; i++)
     {
-        int size = tileset[t].cell_size;
-
-        int w = tileset[t].rect.w / size;
-        int h = tileset[t].rect.h / size;
-
-
-        tiles[t] = malloc(sizeof(Sprite) * w * h);
-
-        for (int y=0; y < h; y++)
-        {
-            for (int x=0; x < w; x++)
-            {
-                int index = x + (y * w);
-
-                tiles[t][index].sheet = tileset[t].texture;
-
-                tiles[t][index].rect.x = x * size;
-                tiles[t][index].rect.y = y * size;
-                tiles[t][index].rect.w = size;
-                tiles[t][index].rect.h = size;
-            }
-        }
-
+        load_tileset(&(tiles[i]), &(tile_texture[i]));
     }
 
     // map
-    typedef struct
-    {
-        SDL_Rect size;
-        int tileset;
-        int **tiles;
-    } Maps;
 
-    Maps map1;
+    Map map1;
     map1.size.x = 0;
     map1.size.y = 0;
-    map1.size.w = 80;
-    map1.size.h = 60;
+    map1.size.w = 40;
+    map1.size.h = 30;
 
-    map1.tileset = 1; // Carefull with this value
+    map1.tiles = &(tiles[1]); // Carefull with this value
 
-    map1.tiles = malloc(sizeof(int *) * map1.size.h);
+    map1.indexes = malloc(sizeof(int *) * map1.size.h);
     for (int y = 0; y < map1.size.h; y++)
     {
-        map1.tiles[y] = malloc(sizeof(int) * map1.size.w);
+        map1.indexes[y] = malloc(sizeof(int) * map1.size.w);
         for (int x = 0; x < map1.size.w; x++)
         {
-            int size = tileset[map1.tileset].cell_size;
-            int w = tileset[map1.tileset].rect.w / size;
-            int h = tileset[map1.tileset].rect.h / size;
-
-            int index = rand() % size;
-            map1.tiles[y][x] = index; // Carefull with this value
+            int index = rand() % map1.tiles->n;
+            //int index = x + y * map1.size.w;
+            map1.indexes[y][x] = index; // Carefull with this value
         }
     }
 
@@ -308,21 +277,22 @@ int main (int argc, char* argv[])
 
                 for (int y = 0; y < map1.size.h; y++)
                 {
-                    for (int x = 0; x < map1.size.h; x++)
+                    for (int x = 0; x < map1.size.w; x++)
                     {
-                        int index = map1.tiles[y][x];
+                        int index = map1.indexes[y][x];
 
+                        Sprite *sprites = &(map1.tiles->sprites[index]);
 
                         SDL_Rect rect;
-                        rect.x = x * tiles[map1.tileset][index].rect.w * upscale;
-                        rect.y = y * tiles[map1.tileset][index].rect.h * upscale;
-                        rect.w = tiles[map1.tileset][index].rect.w * upscale;
-                        rect.h = tiles[map1.tileset][index].rect.h * upscale; 
+                        rect.x = x * sprites->rect.w * upscale;
+                        rect.y = y * sprites->rect.h * upscale;
+                        rect.w = sprites->rect.w * upscale;
+                        rect.h = sprites->rect.h * upscale; 
 
                         SDL_RenderCopy(
                             renderer,
-                            tiles[map1.tileset][index].sheet,
-                            &(tiles[map1.tileset][index].rect),
+                            sprites->texture,
+                            &(sprites->rect),
                             &rect
                         );
                     }
@@ -359,21 +329,19 @@ int main (int argc, char* argv[])
 
     for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
     {
-        SDL_DestroyTexture(sheet[i].texture);
-        sheet[i].texture = NULL;
+        delete_spritesheet(&(sheet[i]));
     }
 
     for (int i = 0; i < tileset_size; i++)
     {
-        SDL_DestroyTexture(tileset[i].texture);
-        tileset[i].texture = NULL;
+        delete_spritesheet(&(tile_texture[i]));
     }
 
-    for (int t=0; t < tileset_size; t++)
+    for (int i = 0; i < tileset_size; i++)
     {
-        free(tiles[t]);
+        delete_tileset(&(tiles[i]));
     }
-    free(tiles);
+
 
     for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
     {
@@ -397,9 +365,7 @@ int main (int argc, char* argv[])
     SDL_DestroyWindow(screen.window);
     screen.renderer = NULL;
     screen.window = NULL;
-
     SDL_Quit();
-
     return 0;
 }
 

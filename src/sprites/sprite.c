@@ -1,6 +1,7 @@
 #include "sprite.h"
 
-int load_sprite_sheet(SDL_Renderer *renderer, SpriteSheet *sheet, char *path, int cell_size)
+// SpriteSheet
+int load_spritesheet(SpriteSheet *sheet, SDL_Renderer *renderer, char *path, int cell_size)
 {
     int img_flags = IMG_INIT_PNG;
     if((IMG_Init(img_flags) & img_flags) != img_flags) return 1;
@@ -23,3 +24,48 @@ int load_sprite_sheet(SDL_Renderer *renderer, SpriteSheet *sheet, char *path, in
     return 0;
 }
 
+void delete_spritesheet(SpriteSheet *sheet)
+{
+    SDL_DestroyTexture(sheet->texture);
+    sheet->texture = NULL;
+}
+
+// Sprites
+void load_sprite(Sprite *sprite, SpriteSheet *sheet, int x, int y, int size)
+{
+    sprite->texture = sheet->texture;
+    
+    sprite->rect.x = x;
+    sprite->rect.y = y;
+    sprite->rect.w = size;
+    sprite->rect.h = size;
+}
+
+// Tiles
+void load_tileset(TileSet *tileset, SpriteSheet *sheet)
+{
+    int w = sheet->rect.w / sheet->cell_size;
+    int h = sheet->rect.h / sheet->cell_size;
+    int n = w * h;
+
+    tileset->n = n;
+    
+    tileset->sprites = malloc(sizeof(TileSet) * n);
+    for (int y = 0; y < h; y++)
+    {
+        for (int x = 0; x < w; x++)
+        {
+            int i = x + (y * w);
+            int size = sheet->cell_size;
+
+            Sprite *sprite = &(tileset->sprites[i]);
+            load_sprite(sprite, sheet, x * size, y * size, size);
+        }
+    }
+}
+
+void delete_tileset(TileSet *tileset)
+{
+    free(tileset->sprites);
+    tileset->n = 0;
+}
