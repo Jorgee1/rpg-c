@@ -2,7 +2,7 @@
 
 NAME="rpg"
 
-COMPILER=clang
+COMPILER=gcc
 ext=".c"
 
 SDL_PATH=/usr/include/SDL2

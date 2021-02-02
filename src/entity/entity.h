@@ -1,4 +1,4 @@
-#include "sprites/sprite.h"
+#include "sprite.h"
 
 #ifndef ENTITY_H
 #define ENTITY_H

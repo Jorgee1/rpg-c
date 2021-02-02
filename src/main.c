@@ -12,7 +12,7 @@
 #include "charset.h"
 
 #include "entity/entity.h"
-#include "sprites/sprite.h"
+#include "sprite.h"
 
 #include "views/index.h"
 #include "views/game/game.h"
@@ -37,7 +37,7 @@ int main (int argc, char* argv[])
     // SDL INIT ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
 
-    int upscale = 3; // For sprites
+    int upscale = 4; // For sprites
 
     Screen screen;
     int init = init_screen(
@@ -153,7 +153,7 @@ int main (int argc, char* argv[])
 
     const int tileset_size = 2;
 
-    char *tileset_path[tileset_size] = {
+    char *tileset_path[] = {
         "assets/textures/inside.png",
         "assets/textures/outside.png"
     };
@@ -201,7 +201,39 @@ int main (int argc, char* argv[])
         }
     }
 
-    Map *map1 = &maps[1];
+
+
+    char *map_path = "assets/maps/map.map";
+    FILE *file = fopen(map_path, "r");
+    uint32_t _w = 0;
+    uint32_t _h = 0;
+    fread(&_w, sizeof(uint32_t), 1, file);
+    fread(&_h, sizeof(uint32_t), 1, file);
+    printf("%i, %i\n", (int) _w, (int) _h);
+
+    Map map2;
+    map2.tiles = &tiles[0];
+    map2.size.x = 0;
+    map2.size.y = 0;
+    map2.size.h = (int) _h;
+    map2.size.w = (int) _w;
+    map2.indexes = malloc(sizeof(int *) * _h);
+    for (int y = 0; y < _h; y++)
+    {
+        map2.indexes[y] = malloc(sizeof(int) * _w); 
+        for (int x = 0; x < _w; x++)
+        {
+            uint32_t _index = 0;
+            fread(&_index, sizeof(uint32_t), 1, file);
+            map2.indexes[y][x] = (int) _index;
+            printf("%i\n", map2.indexes[y][x]);
+        }
+    }
+
+    fclose(file);
+    file = NULL;
+
+    Map *map1 = &map2;
     ///////////////////////////////////////////////////////////////////////////////////////
     // GAME INIT //////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -220,7 +252,7 @@ int main (int argc, char* argv[])
         entity[i].max_speed = (SDL_Point) {5, 5};
 
         int state = PLAYER_WALK;
-        int direction = PLAYER_LEFT;
+        int direction = PLAYER_FRONT;
 
         entity[i].state = state;
         entity[i].direction = direction;
@@ -244,7 +276,6 @@ int main (int argc, char* argv[])
         {
             SDL_Event event;
             if (SDL_PollEvent(&event) == 0) break;
-
             if (event.type == SDL_QUIT) screen.exit = SDL_GAME_EXIT;
         }
 
@@ -332,6 +363,11 @@ int main (int argc, char* argv[])
         free(maps[i].indexes);
     }
 
+    for (int y = 0; y < map2.size.h; y++)
+    {
+        free(map2.indexes[y]);
+    }
+    free(map2.indexes);
 
     for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
     {
