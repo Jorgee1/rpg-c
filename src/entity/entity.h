@@ -33,6 +33,7 @@ typedef struct
 	Sprite *sprite;
 } Entity;
 
+void load_entity(Entity *, SDL_Rect, Sprite *, int, int, int);
 
 #endif
 

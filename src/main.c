@@ -117,16 +117,12 @@ int main (int argc, char* argv[])
 
     Animation **animations; // declaring using [][] crashes the program
 
-    // Alocationg space
+    // Initialization
     animations = malloc(sizeof(Animation *) * PLAYER_STATE_TOTAL);
+
     for (int i=0; i < PLAYER_STATE_TOTAL; i++)
     {
         animations[i] = malloc(sizeof(Animation) * PLAYER_FACES_TOTAL);
-    }
-
-    // Initialization
-    for (int i=0; i < PLAYER_STATE_TOTAL; i++)
-    {
         int cell_size = sheet[i].cell_size;
         int animation_size = sheet[i].rect.w / sheet[i].cell_size;
 
@@ -159,7 +155,6 @@ int main (int argc, char* argv[])
     };
 
     SpriteSheet tile_texture[tileset_size];
-
     for (int i=0; i < tileset_size; i++)
     {
         int cell_size = 16;
@@ -170,70 +165,16 @@ int main (int argc, char* argv[])
     }
 
     TileSet *tiles = malloc(sizeof(TileSet) * tileset_size);
-
     for (int i = 0; i < tileset_size; i++)
     {
         load_tileset(&tiles[i], &tile_texture[i]);
     }
 
-    // map
+    // Map
 
-    Map maps[tileset_size];
+    Map map;
+    load_map(&map, &tiles[1], "assets/maps/map.map");
 
-    for (int i = 0; i < tileset_size; i++)
-    {
-        maps[i].size.x = 0;
-        maps[i].size.y = 0;
-        maps[i].size.w = 40;
-        maps[i].size.h = 30;
-
-        maps[i].tiles = &tiles[1]; // Carefull with this value
-
-        maps[i].indexes = malloc(sizeof(int *) * maps[i].size.h);
-        for (int y = 0; y < maps[i].size.h; y++)
-        {
-            maps[i].indexes[y] = malloc(sizeof(int) * maps[i].size.w);
-            for (int x = 0; x < maps[i].size.w; x++)
-            {
-                int index = rand() % maps[i].tiles->n;
-                maps[i].indexes[y][x] = index; // Carefull with this value
-            }
-        }
-    }
-
-
-
-    char *map_path = "assets/maps/map.map";
-    FILE *file = fopen(map_path, "r");
-    uint32_t _w = 0;
-    uint32_t _h = 0;
-    fread(&_w, sizeof(uint32_t), 1, file);
-    fread(&_h, sizeof(uint32_t), 1, file);
-    printf("%i, %i\n", (int) _w, (int) _h);
-
-    Map map2;
-    map2.tiles = &tiles[0];
-    map2.size.x = 0;
-    map2.size.y = 0;
-    map2.size.h = (int) _h;
-    map2.size.w = (int) _w;
-    map2.indexes = malloc(sizeof(int *) * _h);
-    for (int y = 0; y < _h; y++)
-    {
-        map2.indexes[y] = malloc(sizeof(int) * _w); 
-        for (int x = 0; x < _w; x++)
-        {
-            uint32_t _index = 0;
-            fread(&_index, sizeof(uint32_t), 1, file);
-            map2.indexes[y][x] = (int) _index;
-            printf("%i\n", map2.indexes[y][x]);
-        }
-    }
-
-    fclose(file);
-    file = NULL;
-
-    Map *map1 = &map2;
     ///////////////////////////////////////////////////////////////////////////////////////
     // GAME INIT //////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -243,23 +184,18 @@ int main (int argc, char* argv[])
     Entity entity[entity_size];
     for (int i = 0; i < entity_size; i++)
     {
-        entity[i].rect.x = 90 + i*60;
-        entity[i].rect.y = 100;
-        entity[i].rect.h = 100;
-        entity[i].rect.w = 100;
-
-        entity[i].speed = (SDL_Point) {0, 0};
-        entity[i].max_speed = (SDL_Point) {5, 5};
+        SDL_Rect rect;
+        rect.x = 90 + i*60;
+        rect.y = 100;
+        rect.w = 100;
+        rect.h = 100;
 
         int state = PLAYER_WALK;
         int direction = PLAYER_FRONT;
 
-        entity[i].state = state;
-        entity[i].direction = direction;
-        
-        entity[i].sprite = &animations[state][direction].sprites[0];
-        entity[i].animation_index = 0;
-        entity[i].animation_acc = 0;
+        Sprite *sprite = &animations[state][direction].sprites[0];
+
+        load_entity(&entity[i], rect, sprite, upscale, state, direction);
     }
 
     Entity *player = &entity[0];
@@ -301,13 +237,13 @@ int main (int argc, char* argv[])
             {
                 game_update_input(&screen, player);
                 game_update_word(animations, entity, entity_size);
-                game_update_screen(&screen, entity, map1, entity_size, upscale);
+                game_update_screen(&screen, entity, &map, entity_size, upscale);
             }break;
 
             case VIEW_PAUSE:
             {
                 pause_update_input(&screen);
-                pause_update_screen(&screen, entity, map1, entity_size, upscale, letters_black);
+                pause_update_screen(&screen, entity, &map, entity_size, upscale, letters_black);
             }break;
 
             default:
@@ -326,63 +262,26 @@ int main (int argc, char* argv[])
     destroy_charset(letters_green, letters_size);
     destroy_charset(letters_red,   letters_size);
 
-    for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
-    {
-        delete_spritesheet(&sheet[i]);
-    }
+    delete_map(&map);
 
-
-    for (int i = 0; i < tileset_size; i++)
-    {
-        delete_spritesheet(&tile_texture[i]);
-    }
-
-    for (int i = 0; i < tileset_size; i++)
-    {
-        delete_tileset(&tiles[i]);
-    }
+    for (int i = 0; i < PLAYER_STATE_TOTAL; i++) delete_spritesheet(&sheet[i]);
+    for (int i = 0; i < tileset_size; i++)  delete_spritesheet(&tile_texture[i]);
+    for (int i = 0; i < tileset_size; i++) delete_tileset(&tiles[i]);
 
 
     for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
     {
         for (int j = 0; j < PLAYER_FACES_TOTAL; j++)
         {
-            free(animations[i][j].sprites);
-            animations[i][j].sprites = NULL;
+            delete_animation(&animations[i][j]);
         }
-
-    }
-
-
-    for (int i = 0; i < tileset_size; i++)
-    {
-        for (int y = 0; y < maps[i].size.h; y++)
-        {
-            free(maps[i].indexes[y]);
-        }
-        free(maps[i].indexes);
-    }
-
-    for (int y = 0; y < map2.size.h; y++)
-    {
-        free(map2.indexes[y]);
-    }
-    free(map2.indexes);
-
-    for (int i = 0; i < PLAYER_STATE_TOTAL; i++)
-    {
         free(animations[i]);
         animations[i] = NULL;
     }
     free(animations);
     animations = NULL;
 
-    SDL_DestroyRenderer(screen.renderer);
-    SDL_DestroyWindow(screen.window);
-    screen.renderer = NULL;
-    screen.window = NULL;
-
-    SDL_Quit();
+    delete_screen(&screen);
     return 0;
 }
 

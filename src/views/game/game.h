@@ -1,6 +1,7 @@
 #include <SDL.h>
 
 #include "utils.h"
+#include "sprite.h"
 #include "controller.h"
 #include "entity/entity.h"
 

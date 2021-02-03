@@ -86,16 +86,10 @@ void game_update_screen(Screen *screen, Entity entity[], Map* map, int size, int
     set_render_draw_color(renderer, screen->clear_color);
     SDL_RenderClear(renderer);
 
-    game_render_world(screen, map, upscale);
+    map_render(screen->renderer, map, upscale);
     game_render(screen, entity, size, upscale);
 
     SDL_RenderPresent(renderer);
-}
-
-
-void game_render_world(Screen *screen, Map* map, int upscale)
-{
-    map_render(screen->renderer, map, upscale);
 }
 
 void game_render(Screen *screen, Entity entity[], int size, int upscale)

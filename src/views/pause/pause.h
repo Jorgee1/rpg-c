@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "sprite.h"
 #include "controller.h"
 #include "charset.h"
 
