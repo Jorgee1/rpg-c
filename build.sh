@@ -2,7 +2,9 @@
 
 NAME="rpg"
 
+
 COMPILER=clang
+
 ext=".c"
 
 SDL_PATH=/usr/include/SDL2
@@ -10,6 +12,7 @@ SRC_PATH=src
 OBJ_PATH=objs
 BIN_PATH=bin
 ASSET_PATH=assets
+
 
 FLAGS="-lSDL2 -lSDL2_ttf -lSDL2_image -no-pie"
 FILES=$(find $SRC_PATH/ -type f -name '*'$ext)
@@ -37,6 +40,7 @@ else
 fi
 
 $COMPILER $OBJS $FLAGS -o $BIN_PATH/$NAME 
+
 
 if [ -d $ASSET_PATH ]
 then
